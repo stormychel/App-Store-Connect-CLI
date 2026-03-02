@@ -2128,3 +2128,98 @@ func TestBuildsLatestFailsOnRepeatedProbePaginationURLAfterAnomaly(t *testing.T)
 		t.Fatalf("expected exactly 2 build page requests, got %d", requestCount)
 	}
 }
+
+func TestBuildsLatestFailsWhenAnomalyProbeHitsPageScanCap(t *testing.T) {
+	setupAuth(t)
+	t.Setenv("ASC_CONFIG_PATH", filepath.Join(t.TempDir(), "nonexistent.json"))
+
+	const pagePrefix = "https://api.appstoreconnect.apple.com/v1/builds?page="
+
+	originalTransport := http.DefaultTransport
+	t.Cleanup(func() {
+		http.DefaultTransport = originalTransport
+	})
+
+	nextPageByCurrent := map[string]string{
+		"2":  "3",
+		"3":  "4",
+		"4":  "5",
+		"5":  "6",
+		"6":  "7",
+		"7":  "8",
+		"8":  "9",
+		"9":  "10",
+		"10": "11",
+	}
+
+	requestCount := 0
+	http.DefaultTransport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requestCount++
+		if req.Method != http.MethodGet || req.URL.Path != "/v1/builds" {
+			t.Fatalf("unexpected request: %s %s", req.Method, req.URL.String())
+		}
+
+		page := req.URL.Query().Get("page")
+		switch page {
+		case "":
+			body := `{
+				"data":[{"type":"builds","id":"build-page1-older","attributes":{"version":"10","uploadedDate":"2026-01-01T00:00:00Z"}}],
+				"links":{"next":"` + pagePrefix + `2"}
+			}`
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+			}, nil
+		case "2":
+			// Anomaly starts here: newer build appears after page 1.
+			body := `{
+				"data":[{"type":"builds","id":"build-page2-newer","attributes":{"version":"11","uploadedDate":"2026-02-01T00:00:00Z"}}],
+				"links":{"next":"` + pagePrefix + `3"}
+			}`
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+			}, nil
+		default:
+			nextPage, ok := nextPageByCurrent[page]
+			if !ok {
+				t.Fatalf("unexpected page query %q", page)
+			}
+			body := `{
+				"data":[{"type":"builds","id":"build-page` + page + `-older","attributes":{"version":"10","uploadedDate":"2026-01-15T00:00:00Z"}}],
+				"links":{"next":"` + pagePrefix + nextPage + `"}
+			}`
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+			}, nil
+		}
+	})
+
+	root := RootCommand("1.2.3")
+	root.FlagSet.SetOutput(io.Discard)
+
+	var runErr error
+	stdout, _ := captureOutput(t, func() {
+		if err := root.Parse([]string{"builds", "latest", "--app", "100000001"}); err != nil {
+			t.Fatalf("parse error: %v", err)
+		}
+		runErr = root.Run(context.Background())
+	})
+
+	if runErr == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(runErr.Error(), "builds latest: failed to paginate builds: reached scan cap of 10 pages") {
+		t.Fatalf("expected page cap error, got %v", runErr)
+	}
+	if stdout != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if requestCount != 10 {
+		t.Fatalf("expected exactly 10 build page requests, got %d", requestCount)
+	}
+}

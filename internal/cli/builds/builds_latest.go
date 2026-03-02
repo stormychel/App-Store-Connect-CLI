@@ -441,9 +441,13 @@ func findMostRecentlyUploadedBuild(
 
 		pageLinks := nextPage.GetLinks()
 		if pageLinks == nil || pageLinks.Next == "" {
+			nextURL = ""
 			break
 		}
 		nextURL = pageLinks.Next
+	}
+	if nextURL != "" && pagesScanned >= buildsLatestScanPageLimit {
+		return nil, fmt.Errorf("failed to paginate builds: reached scan cap of %d pages with additional pages remaining", buildsLatestScanPageLimit)
 	}
 
 	return &asc.BuildResponse{
