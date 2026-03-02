@@ -145,8 +145,8 @@ Examples:
 			var latestBuild *asc.BuildResponse
 
 			if !hasPreReleaseFilters {
-				// No filters: compute the most recently uploaded build deterministically
-				// across all pages instead of trusting a single server-ordered result.
+				// No filters: favor the first page (server sorted by uploadedDate), while
+				// probing additional pages only when ordering looks inconsistent.
 				opts := []asc.BuildsOption{
 					asc.WithBuildsSort("-uploadedDate"),
 					asc.WithBuildsLimit(200),
@@ -360,38 +360,66 @@ func findMostRecentlyUploadedBuild(
 	appID string,
 	opts ...asc.BuildsOption,
 ) (*asc.BuildResponse, error) {
+	const buildsLatestScanPageLimit = 10
+
 	firstPage, err := client.GetBuilds(ctx, appID, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch builds: %w", err)
 	}
 
 	var latest *asc.Resource[asc.BuildAttributes]
-	consumePage := func(page *asc.BuildsResponse) {
+	consumePage := func(page *asc.BuildsResponse) bool {
+		pageHadNewer := false
 		for i := range page.Data {
 			candidate := page.Data[i]
 			if latest == nil || isMoreRecentUploadedBuild(candidate, *latest) {
 				selected := candidate
 				latest = &selected
+				pageHadNewer = true
 			}
 		}
+		return pageHadNewer
 	}
-
-	err = asc.PaginateEach(ctx, firstPage, func(ctx context.Context, nextURL string) (asc.PaginatedResponse, error) {
-		return client.GetBuilds(ctx, appID, asc.WithBuildsNextURL(nextURL))
-	}, func(page asc.PaginatedResponse) error {
-		resp, ok := page.(*asc.BuildsResponse)
-		if !ok {
-			return fmt.Errorf("unexpected builds page type %T", page)
-		}
-		consumePage(resp)
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to paginate builds: %w", err)
-	}
+	consumePage(firstPage)
 
 	if latest == nil {
 		return nil, nil
+	}
+
+	links := firstPage.GetLinks()
+	if links == nil || links.Next == "" {
+		return &asc.BuildResponse{Data: *latest}, nil
+	}
+
+	nextURL := links.Next
+	pagesScanned := 1
+	anomalyDetected := false
+	for nextURL != "" && pagesScanned < buildsLatestScanPageLimit {
+		nextPage, err := client.GetBuilds(ctx, appID, asc.WithBuildsNextURL(nextURL))
+		if err != nil {
+			return nil, fmt.Errorf("failed to paginate builds: page %d: %w", pagesScanned+1, err)
+		}
+		pagesScanned++
+
+		pageHadNewer := consumePage(nextPage)
+		if !anomalyDetected {
+			// Normal case: page 1 already contains the latest item.
+			// Stop immediately once a later page fails to produce a newer build.
+			if !pageHadNewer {
+				break
+			}
+			// If a later page is newer than page 1, keep scanning until ordering
+			// stabilizes or we hit the safety cap.
+			anomalyDetected = true
+		} else if !pageHadNewer {
+			break
+		}
+
+		pageLinks := nextPage.GetLinks()
+		if pageLinks == nil || pageLinks.Next == "" {
+			break
+		}
+		nextURL = pageLinks.Next
 	}
 
 	return &asc.BuildResponse{
