@@ -13,16 +13,10 @@ type SubmitReadinessIssue struct {
 	MissingFields []string
 }
 
-var submitRequiredLocalizationFields = []string{
-	"description",
-	"keywords",
-	"supportUrl",
-}
-
 // MissingSubmitRequiredLocalizationFields returns missing metadata fields that
 // block App Store submission for a version localization.
 func MissingSubmitRequiredLocalizationFields(attrs asc.AppStoreVersionLocalizationAttributes) []string {
-	missing := make([]string, 0, len(submitRequiredLocalizationFields))
+	missing := make([]string, 0, 3)
 	if strings.TrimSpace(attrs.Description) == "" {
 		missing = append(missing, "description")
 	}
