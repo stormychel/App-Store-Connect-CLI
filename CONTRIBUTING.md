@@ -82,6 +82,7 @@ make build               # Build binary
 
 - Keep PRs small and focused.
 - Add or update tests for new behavior.
+- When pruning repetitive tests, prefer grouped/table-driven suites, but keep representative high-signal assertions for response decoding and user-facing output formatting.
 - Update `README.md` if behavior or scope changes.
 - Avoid committing any credentials or `.p8` files.
 
