@@ -47,7 +47,6 @@ func fetchSubscriptions(ctx context.Context, client *asc.Client, appID string) (
 		return nil, fmt.Errorf("unexpected subscription groups response type %T", paginatedGroups)
 	}
 
-	// Pre-fetch group localizations for all groups (needed for diagnostics).
 	groupLocalizations := make(map[string][]validation.SubscriptionGroupLocalizationInfo)
 	groupLocalizationStatuses := make(map[string]metadataCheckStatus)
 	groupNames := make(map[string]string)
@@ -57,13 +56,6 @@ func fetchSubscriptions(ctx context.Context, client *asc.Client, appID string) (
 			continue
 		}
 		groupNames[groupID] = strings.TrimSpace(group.Attributes.ReferenceName)
-
-		locs, status, err := fetchGroupLocalizations(ctx, client, groupID)
-		if err != nil {
-			return nil, fmt.Errorf("fetch subscription group localizations for group %s: %w", groupID, err)
-		}
-		groupLocalizations[groupID] = locs
-		groupLocalizationStatuses[groupID] = status
 	}
 
 	subscriptions := make([]validation.Subscription, 0)
@@ -101,24 +93,33 @@ func fetchSubscriptions(ctx context.Context, client *asc.Client, appID string) (
 			}
 
 			attrs := sub.Attributes
-			groupLocalizationStatus := groupLocalizationStatuses[groupID]
 			valSub := validation.Subscription{
-				ID:                            sub.ID,
-				Name:                          attrs.Name,
-				ProductID:                     attrs.ProductID,
-				State:                         attrs.State,
-				GroupID:                       groupID,
-				GroupName:                     groupNames[groupID],
-				HasImage:                      imageStatus.HasImage,
-				ImageCheckSkipped:             !imageStatus.Verified,
-				ImageCheckSkipReason:          imageStatus.SkipReason,
-				GroupLocalizations:            groupLocalizations[groupID],
-				GroupLocalizationCheckSkipped: !groupLocalizationStatus.Verified,
-				GroupLocalizationCheckReason:  groupLocalizationStatus.SkipReason,
+				ID:                   sub.ID,
+				Name:                 attrs.Name,
+				ProductID:            attrs.ProductID,
+				State:                attrs.State,
+				GroupID:              groupID,
+				GroupName:            groupNames[groupID],
+				HasImage:             imageStatus.HasImage,
+				ImageCheckSkipped:    !imageStatus.Verified,
+				ImageCheckSkipReason: imageStatus.SkipReason,
 			}
 
 			// Fetch deep diagnostics only for subscriptions in MISSING_METADATA.
 			if strings.EqualFold(strings.TrimSpace(attrs.State), "MISSING_METADATA") {
+				if _, ok := groupLocalizationStatuses[groupID]; !ok {
+					locs, status, err := fetchGroupLocalizations(ctx, client, groupID)
+					if err != nil {
+						return nil, fmt.Errorf("fetch subscription group localizations for group %s: %w", groupID, err)
+					}
+					groupLocalizations[groupID] = locs
+					groupLocalizationStatuses[groupID] = status
+				}
+				groupLocalizationStatus := groupLocalizationStatuses[groupID]
+				valSub.GroupLocalizations = groupLocalizations[groupID]
+				valSub.GroupLocalizationCheckSkipped = !groupLocalizationStatus.Verified
+				valSub.GroupLocalizationCheckReason = groupLocalizationStatus.SkipReason
+
 				localizations, localizationStatus, err := fetchSubscriptionLocalizations(ctx, client, sub.ID)
 				if err != nil {
 					return nil, fmt.Errorf("fetch subscription localizations for %s: %w", strings.TrimSpace(sub.ID), err)

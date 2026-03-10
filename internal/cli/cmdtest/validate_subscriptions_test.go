@@ -193,6 +193,41 @@ func TestValidateSubscriptionsOutputsJSONAndTable(t *testing.T) {
 	}
 }
 
+func TestValidateSubscriptionsSkipsGroupLocalizationProbeForHealthySubscriptions(t *testing.T) {
+	fixture := validValidateSubscriptionsFixture()
+	fixture.groupLocalizationsByGroup = map[string]string{
+		"group-1": `{"data":invalid}`,
+	}
+
+	client := newValidateSubscriptionsClient(t, fixture)
+	restore := validate.SetClientFactory(func() (*asc.Client, error) {
+		return client, nil
+	})
+	defer restore()
+
+	root := RootCommand("1.2.3")
+	stdout, stderr := captureOutput(t, func() {
+		if err := root.Parse([]string{"validate", "subscriptions", "--app", "app-1"}); err != nil {
+			t.Fatalf("parse error: %v", err)
+		}
+		if err := root.Run(context.Background()); err != nil {
+			t.Fatalf("run error: %v", err)
+		}
+	})
+
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+
+	var report validation.SubscriptionsReport
+	if err := json.Unmarshal([]byte(stdout), &report); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	if report.Summary.Errors != 0 || report.Summary.Warnings != 0 {
+		t.Fatalf("expected no issues, got %+v", report.Summary)
+	}
+}
+
 func TestValidateSubscriptionsWarnsAndStrictFails(t *testing.T) {
 	fixture := validValidateSubscriptionsFixture()
 	fixture.subscriptionsByGroup["group-1"] = `{"data":[{"type":"subscriptions","id":"sub-1","attributes":{"name":"Monthly","productId":"com.example.monthly","state":"READY_TO_SUBMIT"}}]}`
