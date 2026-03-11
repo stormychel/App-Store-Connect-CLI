@@ -590,6 +590,13 @@
     "platform": ["iOS"]
   },
   {
+    "app": "Zenther: AI Calorie Tracker",
+    "link": "https://apps.apple.com/us/app/zenther-ai-calorie-tracker/id6748252780?uo=4",
+    "creator": "rudrankriyam",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/c6/49/14/c6491404-390d-82e2-3c3c-1b6053594311/Zenther-0-1x_U007epad-0-1-85-220-0.png/512x512bb.jpg",
+    "platform": ["iOS"]
+  },
+  {
     "app": "시선 - 사진 한 장, 시 한 줄",
     "link": "https://apps.apple.com/app/id6748271659",
     "creator": "evanyi",
