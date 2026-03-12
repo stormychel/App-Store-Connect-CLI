@@ -55,6 +55,13 @@
     "platform": ["iOS", "watchOS"]
   },
   {
+    "app": "Bloom - Coffee Shelf & Recipe",
+    "link": "https://apps.apple.com/us/app/bloom-coffee-shelf-recipe/id6759914524?uo=4",
+    "creator": "ParthJadhav",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/a4/c8/2a/a4c82a25-fae8-4c04-6d02-91a15b72bb4f/BloomIconFinal-0-1x_U007ephone-0-1-0-sRGB-85-220-0.png/512x512bb.jpg",
+    "platform": ["iOS"]
+  },
+  {
     "app": "Bobbin",
     "link": "https://apps.apple.com/us/app/threads-growth-bobbin/id6756035789",
     "creator": "ljyjeffrey",
