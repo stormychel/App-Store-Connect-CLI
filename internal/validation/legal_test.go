@@ -186,3 +186,48 @@ func TestLegalChecks_AllValid_NoChecks(t *testing.T) {
 		t.Fatalf("expected no checks for fully valid input, got %d: %v", len(checks), checks)
 	}
 }
+
+func TestValidate_IncludesLegalChecks(t *testing.T) {
+	report := Validate(Input{
+		AppID:         "app-1",
+		VersionID:     "ver-1",
+		VersionString: "2.0",
+		VersionState:  "PREPARE_FOR_SUBMISSION",
+		VersionLocalizations: []VersionLocalization{
+			{Locale: "en-US", Description: "desc", Keywords: "kw", SupportURL: "https://example.com"},
+		},
+		AppInfoLocalizations: []AppInfoLocalization{
+			{Locale: "en-US", Name: "App", PrivacyPolicyURL: "https://example.com/privacy"},
+		},
+		PrimaryCategoryID: "cat-1",
+	}, false)
+
+	if !hasCheckID(report.Checks, "legal.required.copyright") {
+		t.Fatal("expected legal.required.copyright in full Validate output")
+	}
+}
+
+func TestValidate_NoDuplicatePrivacyPolicyChecks_WithSubscriptions(t *testing.T) {
+	report := Validate(Input{
+		AppID:         "app-1",
+		VersionID:     "ver-1",
+		VersionString: "2.0",
+		VersionState:  "PREPARE_FOR_SUBMISSION",
+		Copyright:     "2026 Co",
+		VersionLocalizations: []VersionLocalization{
+			{Locale: "en-US", Description: "desc", Keywords: "kw", SupportURL: "https://example.com"},
+		},
+		AppInfoLocalizations: []AppInfoLocalization{
+			{Locale: "en-US", Name: "App"},
+		},
+		Subscriptions:     []Subscription{{ProductID: "sub-1", State: "APPROVED"}},
+		PrimaryCategoryID: "cat-1",
+	}, false)
+
+	if !hasCheckID(report.Checks, "legal.required.privacy_policy_url") {
+		t.Fatal("expected legal.required.privacy_policy_url error")
+	}
+	if hasCheckID(report.Checks, "metadata.recommended.privacy_policy_url") {
+		t.Fatal("should suppress metadata.recommended.privacy_policy_url when legal.required fires")
+	}
+}
