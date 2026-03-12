@@ -298,6 +298,13 @@
     "platform": ["iOS", "macOS"]
   },
   {
+    "app": "Palabros - Diccionario",
+    "link": "https://apps.apple.com/us/app/palabros-diccionario/id6758098070?uo=4",
+    "creator": "nachocerrato",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/a9/25/1a/a9251ac1-2d3d-c390-ffa7-29c0dc645d45/AppIcon-0-1x_U007ephone-0-1-85-220-0.png/512x512bb.jpg",
+    "platform": ["iOS"]
+  },
+  {
     "app": "Parsely",
     "link": "https://testflight.apple.com/join/HjUZtzVm",
     "creator": "sambitcreate",
