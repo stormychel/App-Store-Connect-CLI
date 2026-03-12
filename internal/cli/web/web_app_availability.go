@@ -102,13 +102,14 @@ Examples:
 				return shared.UsageError("--territory must include at least one value")
 			}
 
-			requestCtx, cancel := shared.ContextWithTimeout(ctx)
-			defer cancel()
-
-			session, err := resolveWebSessionForCommand(requestCtx, authFlags)
+			session, err := resolveWebSessionForCommand(ctx, authFlags)
 			if err != nil {
 				return err
 			}
+
+			requestCtx, cancel := shared.ContextWithTimeout(ctx)
+			defer cancel()
+
 			client := newWebClientFn(session)
 
 			var existing *webcore.AppAvailability

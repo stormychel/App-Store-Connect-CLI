@@ -92,6 +92,38 @@ func TestWebAppsAvailabilityCreateValidationErrors(t *testing.T) {
 	}
 }
 
+func TestWebAppsAvailabilityCreateResolvesSessionBeforeTimeoutContext(t *testing.T) {
+	origResolveSession := resolveSessionFn
+	t.Cleanup(func() {
+		resolveSessionFn = origResolveSession
+	})
+
+	resolveErr := errors.New("stop before network call")
+	hadDeadline := false
+	resolveSessionFn = func(ctx context.Context, appleID, password, twoFactorCode string) (*webcore.AuthSession, string, error) {
+		_, hadDeadline = ctx.Deadline()
+		return nil, "", resolveErr
+	}
+
+	cmd := WebAppsAvailabilityCreateCommand()
+	if err := cmd.FlagSet.Parse([]string{
+		"--app", "app-1",
+		"--territory", "USA",
+		"--available-in-new-territories", "false",
+		"--apple-id", "user@example.com",
+	}); err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	err := cmd.Exec(context.Background(), nil)
+	if !errors.Is(err, resolveErr) {
+		t.Fatalf("expected resolveSession error %v, got %v", resolveErr, err)
+	}
+	if hadDeadline {
+		t.Fatal("expected resolveSession to run before timeout context creation")
+	}
+}
+
 func TestWebAppsAvailabilityCreateSkipsCreateWhenAvailabilityExists(t *testing.T) {
 	origResolveSession := resolveSessionFn
 	origNewWebClient := newWebClientFn
