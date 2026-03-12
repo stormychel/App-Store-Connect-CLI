@@ -63,6 +63,18 @@ func TestArchiveMissingXcodebuild(t *testing.T) {
 	}
 }
 
+func TestValidateExistingPathAllowsTrailingSeparator(t *testing.T) {
+	workspacePath := filepath.Join(t.TempDir(), "Demo.xcworkspace")
+	if err := os.MkdirAll(workspacePath, 0o755); err != nil {
+		t.Fatalf("MkdirAll() error: %v", err)
+	}
+
+	pathWithSeparator := workspacePath + string(os.PathSeparator)
+	if err := validateExistingPath(pathWithSeparator, ".xcworkspace", "--workspace"); err != nil {
+		t.Fatalf("expected trailing separator path to validate, got %v", err)
+	}
+}
+
 func TestArchiveCreatesArchiveAtExactPathAndReturnsMetadata(t *testing.T) {
 	tempDir := t.TempDir()
 	projectPath := filepath.Join(tempDir, "Demo.xcodeproj")

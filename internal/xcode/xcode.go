@@ -218,10 +218,11 @@ func validateExistingPath(pathValue, suffix, flagName string) error {
 	if trimmed == "" {
 		return fmt.Errorf("%s is required", flagName)
 	}
-	if !strings.EqualFold(filepath.Ext(trimmed), suffix) {
+	normalized := filepath.Clean(trimmed)
+	if !strings.EqualFold(filepath.Ext(normalized), suffix) {
 		return fmt.Errorf("%s must end with %s", flagName, suffix)
 	}
-	info, err := os.Stat(trimmed)
+	info, err := os.Stat(normalized)
 	if err != nil {
 		return fmt.Errorf("%s: %w", flagName, err)
 	}
