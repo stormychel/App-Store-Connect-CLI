@@ -479,6 +479,13 @@
     "platform": ["tvOS"]
   },
   {
+    "app": "Sharing Me: Shared Journal",
+    "link": "https://apps.apple.com/us/app/sharing-me-shared-journal/id6756325680?uo=4",
+    "creator": "escamoteur",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/53/33/66/53336647-1330-96ad-575f-1bdb47d653d1/AppIcon-0-0-1x_U007emarketing-0-11-0-85-220.png/512x512bb.jpg",
+    "platform": ["iOS"]
+  },
+  {
     "app": "Siraj — Your Ramadan Light",
     "link": "https://apps.apple.com/app/id6759178047",
     "creator": "SwifAI",
