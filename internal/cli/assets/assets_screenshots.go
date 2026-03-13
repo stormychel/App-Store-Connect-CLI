@@ -157,6 +157,7 @@ func AssetsScreenshotsUploadCommand() *ffcli.Command {
 	deviceType := fs.String("device-type", "", "Device type (e.g., IPHONE_65 or IPAD_PRO_3GEN_129)")
 	skipExisting := fs.Bool("skip-existing", false, "Skip files whose MD5 checksum already exists in the target screenshot set")
 	replace := fs.Bool("replace", false, "Delete all existing screenshots from the target set before uploading")
+	dryRun := fs.Bool("dry-run", false, "Show what would be uploaded, skipped, or deleted without making changes")
 	output := shared.BindOutputFlags(fs)
 
 	return &ffcli.Command{
@@ -169,6 +170,7 @@ Examples:
   asc screenshots upload --version-localization "LOC_ID" --path "./screenshots" --device-type "IPHONE_65"
   asc screenshots upload --version-localization "LOC_ID" --path "./screenshots" --device-type "IPHONE_65" --skip-existing
   asc screenshots upload --version-localization "LOC_ID" --path "./screenshots" --device-type "IPHONE_65" --replace
+  asc screenshots upload --version-localization "LOC_ID" --path "./screenshots" --device-type "IPHONE_65" --skip-existing --dry-run
   asc screenshots upload --version-localization "LOC_ID" --path "./screenshots" --device-type "IPAD_PRO_3GEN_129"
   asc screenshots upload --version-localization "LOC_ID" --path "./screenshots/en-US.png" --device-type "IPHONE_65"`,
 		FlagSet:   fs,
@@ -214,7 +216,7 @@ Examples:
 				return fmt.Errorf("screenshots upload: %w", err)
 			}
 
-			result, err := uploadScreenshots(ctx, client, locID, apiDisplayType, files, *skipExisting, *replace)
+			result, err := uploadScreenshots(ctx, client, locID, apiDisplayType, files, *skipExisting, *replace, *dryRun)
 			if err != nil {
 				return fmt.Errorf("screenshots upload: %w", err)
 			}
@@ -663,7 +665,7 @@ func ensureScreenshotSet(ctx context.Context, client *asc.Client, localizationID
 	return created.Data, nil
 }
 
-func uploadScreenshots(ctx context.Context, client *asc.Client, localizationID, displayType string, files []string, skipExisting, replace bool) (asc.AppScreenshotUploadResult, error) {
+func uploadScreenshots(ctx context.Context, client *asc.Client, localizationID, displayType string, files []string, skipExisting, replace, dryRun bool) (asc.AppScreenshotUploadResult, error) {
 	if client == nil {
 		return asc.AppScreenshotUploadResult{}, fmt.Errorf("client is required")
 	}
@@ -692,6 +694,35 @@ func uploadScreenshots(ctx context.Context, client *asc.Client, localizationID, 
 		if err != nil {
 			return asc.AppScreenshotUploadResult{}, err
 		}
+	}
+
+	if dryRun {
+		results := make([]asc.AssetUploadResultItem, 0, len(skippedResults)+len(files)+len(existingScreenshots))
+		if replace {
+			for _, s := range existingScreenshots {
+				results = append(results, asc.AssetUploadResultItem{
+					FileName: s.Attributes.FileName,
+					AssetID:  s.ID,
+					State:    "would-delete",
+				})
+			}
+		}
+		for _, filePath := range files {
+			results = append(results, asc.AssetUploadResultItem{
+				FileName: filepath.Base(filePath),
+				FilePath: filePath,
+				State:    "would-upload",
+			})
+		}
+		results = append(results, skippedResults...)
+
+		return asc.AppScreenshotUploadResult{
+			VersionLocalizationID: localizationID,
+			SetID:                 set.ID,
+			DisplayType:           set.Attributes.ScreenshotDisplayType,
+			DryRun:                true,
+			Results:               results,
+		}, nil
 	}
 
 	uploadCtx, cancel := contextWithAssetUploadTimeout(ctx)

@@ -40,6 +40,7 @@ type AppScreenshotUploadResult struct {
 	VersionLocalizationID string                  `json:"versionLocalizationId"`
 	SetID                 string                  `json:"setId"`
 	DisplayType           string                  `json:"displayType"`
+	DryRun                bool                    `json:"dryRun,omitempty"`
 	Results               []AssetUploadResultItem `json:"results"`
 }
 
@@ -182,8 +183,8 @@ func appPreviewListResultRows(result *AppPreviewListResult) ([]string, [][]strin
 }
 
 func appScreenshotUploadResultMainRows(result *AppScreenshotUploadResult) ([]string, [][]string) {
-	headers := []string{"Localization ID", "Set ID", "Display Type"}
-	rows := [][]string{{result.VersionLocalizationID, result.SetID, result.DisplayType}}
+	headers := []string{"Localization ID", "Set ID", "Display Type", "Dry Run"}
+	rows := [][]string{{result.VersionLocalizationID, result.SetID, result.DisplayType, fmt.Sprintf("%t", result.DryRun)}}
 	return headers, rows
 }
 
