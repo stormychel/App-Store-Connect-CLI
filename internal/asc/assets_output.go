@@ -32,6 +32,7 @@ type AssetUploadResultItem struct {
 	FilePath string `json:"filePath"`
 	AssetID  string `json:"assetId"`
 	State    string `json:"state,omitempty"`
+	Skipped  bool   `json:"skipped,omitempty"`
 }
 
 // AppScreenshotUploadResult represents screenshot upload output.
@@ -208,7 +209,11 @@ func assetUploadResultItemRows(results []AssetUploadResultItem) ([]string, [][]s
 	headers := []string{"File Name", "Asset ID", "State"}
 	rows := make([][]string, 0, len(results))
 	for _, item := range results {
-		rows = append(rows, []string{item.FileName, item.AssetID, item.State})
+		state := item.State
+		if item.Skipped && state == "" {
+			state = "skipped"
+		}
+		rows = append(rows, []string{item.FileName, item.AssetID, state})
 	}
 	return headers, rows
 }

@@ -153,6 +153,8 @@ func AssetsScreenshotsUploadCommand() *ffcli.Command {
 	localizationID := fs.String("version-localization", "", "App Store version localization ID")
 	path := fs.String("path", "", "Path to screenshot file or directory")
 	deviceType := fs.String("device-type", "", "Device type (e.g., IPHONE_65 or IPAD_PRO_3GEN_129)")
+	skipExisting := fs.Bool("skip-existing", false, "Skip files whose MD5 checksum already exists in the target screenshot set")
+	replace := fs.Bool("replace", false, "Delete all existing screenshots from the target set before uploading")
 	output := shared.BindOutputFlags(fs)
 
 	return &ffcli.Command{
@@ -163,6 +165,8 @@ func AssetsScreenshotsUploadCommand() *ffcli.Command {
 
 Examples:
   asc screenshots upload --version-localization "LOC_ID" --path "./screenshots" --device-type "IPHONE_65"
+  asc screenshots upload --version-localization "LOC_ID" --path "./screenshots" --device-type "IPHONE_65" --skip-existing
+  asc screenshots upload --version-localization "LOC_ID" --path "./screenshots" --device-type "IPHONE_65" --replace
   asc screenshots upload --version-localization "LOC_ID" --path "./screenshots" --device-type "IPAD_PRO_3GEN_129"
   asc screenshots upload --version-localization "LOC_ID" --path "./screenshots/en-US.png" --device-type "IPHONE_65"`,
 		FlagSet:   fs,
@@ -181,6 +185,10 @@ Examples:
 			deviceValue := strings.TrimSpace(*deviceType)
 			if deviceValue == "" {
 				fmt.Fprintln(os.Stderr, "Error: --device-type is required")
+				return flag.ErrHelp
+			}
+			if *skipExisting && *replace {
+				fmt.Fprintln(os.Stderr, "Error: --skip-existing and --replace are mutually exclusive")
 				return flag.ErrHelp
 			}
 
@@ -212,10 +220,35 @@ Examples:
 				return fmt.Errorf("screenshots upload: %w", err)
 			}
 
-			results, err := UploadScreenshotsToSet(requestCtx, client, set.ID, files, true)
-			if err != nil {
-				return fmt.Errorf("screenshots upload: %w", err)
+			skippedResults := make([]asc.AssetUploadResultItem, 0)
+			if *skipExisting || *replace {
+				existingResp, err := client.GetAppScreenshots(requestCtx, set.ID)
+				if err != nil {
+					return fmt.Errorf("screenshots upload: %w", err)
+				}
+
+				if *replace {
+					if err := deleteExistingScreenshots(requestCtx, client, existingResp.Data); err != nil {
+						return fmt.Errorf("screenshots upload: %w", err)
+					}
+				}
+
+				if *skipExisting {
+					files, skippedResults, err = filterExistingScreenshotFiles(files, existingResp.Data)
+					if err != nil {
+						return fmt.Errorf("screenshots upload: %w", err)
+					}
+				}
 			}
+
+			results := make([]asc.AssetUploadResultItem, 0, len(skippedResults)+len(files))
+			if len(files) > 0 {
+				results, err = UploadScreenshotsToSet(requestCtx, client, set.ID, files, true)
+				if err != nil {
+					return fmt.Errorf("screenshots upload: %w", err)
+				}
+			}
+			results = append(skippedResults, results...)
 
 			result := asc.AppScreenshotUploadResult{
 				VersionLocalizationID: locID,
@@ -667,6 +700,61 @@ func ensureScreenshotSet(ctx context.Context, client *asc.Client, localizationID
 		return asc.Resource[asc.AppScreenshotSetAttributes]{}, err
 	}
 	return created.Data, nil
+}
+
+func deleteExistingScreenshots(ctx context.Context, client *asc.Client, screenshots []asc.Resource[asc.AppScreenshotAttributes]) error {
+	for _, screenshot := range screenshots {
+		if err := client.DeleteAppScreenshot(ctx, screenshot.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func filterExistingScreenshotFiles(files []string, screenshots []asc.Resource[asc.AppScreenshotAttributes]) ([]string, []asc.AssetUploadResultItem, error) {
+	existingChecksums := make(map[string]struct{}, len(screenshots))
+	for _, screenshot := range screenshots {
+		checksum := strings.TrimSpace(screenshot.Attributes.SourceFileChecksum)
+		if checksum == "" {
+			continue
+		}
+		existingChecksums[checksum] = struct{}{}
+	}
+
+	filtered := make([]string, 0, len(files))
+	skipped := make([]asc.AssetUploadResultItem, 0)
+	for _, filePath := range files {
+		checksum, err := computeFileChecksum(filePath)
+		if err != nil {
+			return nil, nil, err
+		}
+		if _, exists := existingChecksums[checksum]; exists {
+			skipped = append(skipped, asc.AssetUploadResultItem{
+				FileName: filepath.Base(filePath),
+				FilePath: filePath,
+				State:    "skipped",
+				Skipped:  true,
+			})
+			continue
+		}
+		filtered = append(filtered, filePath)
+	}
+
+	return filtered, skipped, nil
+}
+
+func computeFileChecksum(filePath string) (string, error) {
+	file, err := shared.OpenExistingNoFollow(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	checksum, err := asc.ComputeChecksumFromReader(file, asc.ChecksumAlgorithmMD5)
+	if err != nil {
+		return "", err
+	}
+	return checksum.Hash, nil
 }
 
 func uploadScreenshotAsset(ctx context.Context, client *asc.Client, setID, filePath string) (asc.AssetUploadResultItem, error) {
