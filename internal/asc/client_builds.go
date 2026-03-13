@@ -226,6 +226,9 @@ func (c *Client) GetBuilds(ctx context.Context, appID string, opts ...BuildsOpti
 				values.Set("filter[expired]", strconv.FormatBool(*query.expired))
 			}
 		}
+		if len(query.include) > 0 {
+			values.Set("include", strings.Join(query.include, ","))
+		}
 		if queryString := values.Encode(); queryString != "" {
 			path += "?" + queryString
 		}

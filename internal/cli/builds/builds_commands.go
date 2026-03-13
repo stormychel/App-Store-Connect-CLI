@@ -523,6 +523,7 @@ Examples:
 			opts := []asc.BuildsOption{
 				asc.WithBuildsLimit(*limit),
 				asc.WithBuildsNextURL(nextValue),
+				asc.WithBuildsInclude([]string{"preReleaseVersion"}),
 			}
 			if strings.TrimSpace(*sort) != "" {
 				opts = append(opts, asc.WithBuildsSort(*sort))
