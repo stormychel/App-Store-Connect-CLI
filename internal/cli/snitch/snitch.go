@@ -377,7 +377,8 @@ func issueLabels(e LogEntry) []string {
 	case "feature-request":
 		labels = append(labels, "enhancement")
 	}
-	return labels
+	labels = append(labels, e.Labels...)
+	return dedupeLabels(labels)
 }
 
 func printPotentialDuplicates(duplicates []GitHubIssue) {
@@ -400,6 +401,29 @@ func printPreview(entry LogEntry, dryRun bool) {
 	}
 	fmt.Fprintf(os.Stderr, "Title: %s\n", issueTitle(entry))
 	fmt.Fprintf(os.Stderr, "Body:\n%s\n", issueBody(entry))
+}
+
+func dedupeLabels(labels []string) []string {
+	if len(labels) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]struct{}, len(labels))
+	deduped := make([]string, 0, len(labels))
+	for _, raw := range labels {
+		label := strings.TrimSpace(raw)
+		if label == "" {
+			continue
+		}
+		key := strings.ToLower(label)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		deduped = append(deduped, label)
+	}
+
+	return deduped
 }
 
 func readLocalLog(path string) ([]LogEntry, error) {
