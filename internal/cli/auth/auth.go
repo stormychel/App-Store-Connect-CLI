@@ -969,5 +969,8 @@ func loadCredentialKey(cred shared.ResolvedAuthCredentials) (*ecdsa.PrivateKey, 
 	if pemValue := strings.TrimSpace(cred.KeyPEM); pemValue != "" {
 		return authsvc.LoadPrivateKeyFromPEM([]byte(pemValue))
 	}
+	if err := authsvc.ValidateKeyFile(cred.KeyPath); err != nil {
+		return nil, fmt.Errorf("invalid private key: %w", err)
+	}
 	return authsvc.LoadPrivateKey(cred.KeyPath)
 }

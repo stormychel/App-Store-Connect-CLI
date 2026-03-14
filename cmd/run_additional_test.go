@@ -667,6 +667,54 @@ func TestRun_AuthTokenAmbiguousProfilesReturnAuthExit(t *testing.T) {
 	}
 }
 
+func TestRun_AuthTokenRejectsPermissiveKeyFile(t *testing.T) {
+	resetReportFlags(t)
+
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.json")
+	keyPath := filepath.Join(tempDir, "AuthKey.p8")
+	writeRunTestECDSAPEM(t, keyPath)
+	if err := os.Chmod(keyPath, 0o644); err != nil {
+		t.Fatalf("Chmod() error: %v", err)
+	}
+
+	cfg := &config.Config{
+		DefaultKeyName: "default",
+		Keys: []config.Credential{
+			{
+				Name:           "default",
+				KeyID:          "KEY123",
+				IssuerID:       "ISS456",
+				PrivateKeyPath: keyPath,
+			},
+		},
+	}
+	if err := config.SaveAt(configPath, cfg); err != nil {
+		t.Fatalf("SaveAt() error: %v", err)
+	}
+
+	t.Setenv("ASC_CONFIG_PATH", configPath)
+	t.Setenv("ASC_BYPASS_KEYCHAIN", "1")
+	t.Setenv("ASC_PROFILE", "")
+	t.Setenv("ASC_KEY_ID", "")
+	t.Setenv("ASC_ISSUER_ID", "")
+	t.Setenv("ASC_PRIVATE_KEY_PATH", "")
+	t.Setenv("ASC_PRIVATE_KEY", "")
+	t.Setenv("ASC_PRIVATE_KEY_B64", "")
+	resetSelectedProfile(t)
+
+	_, stderr := captureCommandOutput(t, func() {
+		code := Run([]string{"auth", "token", "--confirm"}, "1.0.0")
+		if code != ExitError {
+			t.Fatalf("Run() exit code = %d, want %d", code, ExitError)
+		}
+	})
+
+	if !strings.Contains(stderr, "private key file is too permissive") {
+		t.Fatalf("expected permissive key file error, got %q", stderr)
+	}
+}
+
 func TestWriteJUnitReport(t *testing.T) {
 	resetReportFlags(t)
 

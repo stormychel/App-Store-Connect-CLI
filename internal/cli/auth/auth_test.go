@@ -894,6 +894,29 @@ func TestAuthTokenCommand(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects permissive key files", func(t *testing.T) {
+		cfgPath := filepath.Join(t.TempDir(), "config.json")
+		t.Setenv("ASC_BYPASS_KEYCHAIN", "1")
+		t.Setenv("ASC_CONFIG_PATH", cfgPath)
+		clearResolvedAuthEnv(t)
+		keyPath := writeTempECDSAKeyFile(t)
+		if err := os.Chmod(keyPath, 0o644); err != nil {
+			t.Fatalf("Chmod() error: %v", err)
+		}
+		if err := authsvc.StoreCredentialsConfigAt("demo", "KEY123", "ISS456", keyPath, cfgPath); err != nil {
+			t.Fatalf("StoreCredentialsConfigAt() error: %v", err)
+		}
+
+		cmd := AuthTokenCommand()
+		if err := cmd.FlagSet.Parse([]string{"--confirm"}); err != nil {
+			t.Fatalf("Parse() error: %v", err)
+		}
+		err := cmd.Exec(context.Background(), []string{})
+		if err == nil || !strings.Contains(err.Error(), "private key file is too permissive") {
+			t.Fatalf("expected insecure key file error, got %v", err)
+		}
+	})
+
 	t.Run("prints raw token to stdout", func(t *testing.T) {
 		cfgPath := filepath.Join(t.TempDir(), "config.json")
 		t.Setenv("ASC_BYPASS_KEYCHAIN", "1")
