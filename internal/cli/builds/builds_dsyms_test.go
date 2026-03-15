@@ -87,21 +87,21 @@ func TestFilterBundlesWithDSYM(t *testing.T) {
 
 func TestDsymFileName(t *testing.T) {
 	tests := []struct {
-		name        string
-		bundleID    string
-		appVersion  string
+		name         string
+		bundleID     string
+		appVersion   string
 		buildVersion string
-		buildID     string
-		index       int
-		want        string
+		buildID      string
+		index        int
+		want         string
 	}{
 		{
-			name:        "full info",
-			bundleID:    "com.example.app",
-			appVersion:  "1.2.3",
+			name:         "full info",
+			bundleID:     "com.example.app",
+			appVersion:   "1.2.3",
 			buildVersion: "42",
-			buildID:     "build-1",
-			want:        "com.example.app-1.2.3-42.dSYM.zip",
+			buildID:      "build-1",
+			want:         "com.example.app-1.2.3-42.dSYM.zip",
 		},
 		{
 			name:     "bundle id only",
