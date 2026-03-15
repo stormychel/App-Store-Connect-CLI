@@ -175,3 +175,19 @@ func TestWebAuthCapabilitiesRunRejectsPrettyForTable(t *testing.T) {
 		t.Fatalf("expected pretty validation error, got %q", stderr)
 	}
 }
+
+func TestWebAuthCapabilitiesRunReturnsRuntimeErrorForMissingKey(t *testing.T) {
+	stubWebAuthCapabilitiesLookup(t, func(ctx context.Context, client *webcore.Client, keyID string) (*webcore.APIKeyRoleLookup, error) {
+		return nil, webcore.ErrAPIKeyNotFound
+	})
+
+	_, stderr := captureOutput(t, func() {
+		code := cmd.Run([]string{"web", "auth", "capabilities", "--key-id", "MISSING", "--output", "json"}, "1.0.0")
+		if code != cmd.ExitError {
+			t.Fatalf("exit code = %d, want %d", code, cmd.ExitError)
+		}
+	})
+	if !strings.Contains(stderr, `key "MISSING" not found in App Store Connect web key lists`) {
+		t.Fatalf("expected runtime not-found error, got %q", stderr)
+	}
+}
