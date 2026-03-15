@@ -13,7 +13,6 @@ import (
 
 	signingpkg "github.com/rudrankriyam/App-Store-Connect-CLI/internal/signing"
 
-	"github.com/rudrankriyam/App-Store-Connect-CLI/internal/asc"
 	"github.com/rudrankriyam/App-Store-Connect-CLI/internal/cli/shared"
 )
 
@@ -351,6 +350,3 @@ func profileDirectoryName(profileType string) string {
 		return "other"
 	}
 }
-
-// unused import guard — asc is used by findBundleID/findCertificates/findOrCreateProfile
-var _ = (*asc.Client)(nil)

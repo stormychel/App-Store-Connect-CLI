@@ -108,6 +108,14 @@ func (g *GitStore) ListEncryptedFiles() ([]string, error) {
 			if info.Name() == ".git" {
 				return filepath.SkipDir
 			}
+			// Skip symlinked directories to prevent escape.
+			if info.Mode()&os.ModeSymlink != 0 {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		// Skip symlinked files.
+		if info.Mode()&os.ModeSymlink != 0 {
 			return nil
 		}
 		if strings.HasSuffix(info.Name(), ".enc") {
