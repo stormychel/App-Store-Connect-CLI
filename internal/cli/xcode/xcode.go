@@ -241,11 +241,18 @@ func archiveResultRows(result *localxcode.ArchiveResult) [][]string {
 }
 
 func exportResultRows(result *localxcode.ExportResult) [][]string {
-	return [][]string{
+	rows := [][]string{
 		{"archive_path", result.ArchivePath},
-		{"ipa_path", result.IPAPath},
-		{"bundle_id", result.BundleID},
-		{"version", result.Version},
-		{"build_number", result.BuildNumber},
 	}
+	if result.IPAPath != "" {
+		rows = append(rows, []string{"ipa_path", result.IPAPath})
+	} else {
+		rows = append(rows, []string{"ipa_path", "(direct upload — no local artifact)"})
+	}
+	rows = append(rows,
+		[]string{"bundle_id", result.BundleID},
+		[]string{"version", result.Version},
+		[]string{"build_number", result.BuildNumber},
+	)
+	return rows
 }
