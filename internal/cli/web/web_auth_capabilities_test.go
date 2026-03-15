@@ -394,3 +394,15 @@ func TestWebAuthCapabilitiesAuthResolutionFailureIsUsageError(t *testing.T) {
 		t.Fatalf("expected wrapped auth resolution cause, got %q", stderr)
 	}
 }
+
+func TestWebAuthCapabilitiesHelpContrastsPublicCapabilities(t *testing.T) {
+	cmd := WebAuthCapabilitiesCommand()
+	usage := cmd.UsageFunc(cmd)
+
+	if !strings.Contains(usage, `Unlike "asc auth capabilities", which probes effective public-API access`) {
+		t.Fatalf("expected usage to contrast public auth capabilities, got %q", usage)
+	}
+	if !strings.Contains(usage, "--key-id") {
+		t.Fatalf("expected usage to describe --key-id, got %q", usage)
+	}
+}
