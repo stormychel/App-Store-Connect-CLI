@@ -129,7 +129,14 @@ func SetVersion(ctx context.Context, opts SetVersionOptions) (*SetVersionResult,
 	}
 
 	result := &SetVersionResult{ProjectDir: opts.ProjectDir}
-	modern := isModernProject(ctx, opts.ProjectDir)
+
+	// Detect modern project by reading current version — reuses GetVersion
+	// instead of a separate agvtool call.
+	current, err := GetVersion(ctx, opts.ProjectDir)
+	if err != nil {
+		return nil, err
+	}
+	modern := current.Modern
 
 	if v := strings.TrimSpace(opts.Version); v != "" {
 		if modern {
@@ -343,49 +350,29 @@ func updatePbxprojSetting(projectDir, setting, newValue string) error {
 	}
 
 	oldContent := string(data)
+	lines := strings.Split(oldContent, "\n")
 	var replaced int
-	var result strings.Builder
-	result.Grow(len(oldContent))
 
-	for _, line := range strings.Split(oldContent, "\n") {
+	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, setting+" = ") && strings.HasSuffix(trimmed, ";") {
 			// Preserve original indentation.
 			indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
-			result.WriteString(indent)
-			result.WriteString(setting)
-			result.WriteString(" = ")
-			result.WriteString(newValue)
-			result.WriteString(";\n")
+			lines[i] = indent + setting + " = " + newValue + ";"
 			replaced++
-		} else {
-			result.WriteString(line)
-			result.WriteString("\n")
 		}
 	}
-
-	// Remove trailing extra newline from the loop.
-	output := strings.TrimSuffix(result.String(), "\n")
 
 	if replaced == 0 {
 		return fmt.Errorf("%s not found in %s", setting, pbxprojPath)
 	}
 
-	return os.WriteFile(pbxprojPath, []byte(output), 0o644)
+	return os.WriteFile(pbxprojPath, []byte(strings.Join(lines, "\n")), 0o600)
 }
 
 // isVariableReference checks if a value is an Xcode variable like $(MARKETING_VERSION).
 func isVariableReference(value string) bool {
 	return strings.Contains(value, "$(")
-}
-
-// isModernProject detects if the project uses build-setting-based versioning.
-func isModernProject(ctx context.Context, projectDir string) bool {
-	version, err := runAgvtool(ctx, projectDir, "what-marketing-version", "-terse1")
-	if err != nil {
-		return false
-	}
-	return isVariableReference(parseAgvtoolVersionOutput(version))
 }
 
 // parseAgvtoolVersionOutput extracts the version from agvtool output.
