@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -318,6 +319,251 @@ func TestExportWritesIPAAtExactPathAndReturnsMetadata(t *testing.T) {
 	}
 }
 
+func TestExportDirectUploadPreservesExistingIPAAndReturnsArchiveMetadata(t *testing.T) {
+	tempDir := t.TempDir()
+	archivePath := filepath.Join(tempDir, "Demo.xcarchive")
+	if err := writeArchiveInfoPlist(archivePath); err != nil {
+		t.Fatalf("writeArchiveInfoPlist() error: %v", err)
+	}
+	exportOptionsPath := filepath.Join(tempDir, "ExportOptions.plist")
+	writeExportOptionsPlist(t, exportOptionsPath, map[string]any{"destination": "upload"})
+	logPath := filepath.Join(tempDir, "commands.log")
+
+	restore := overrideTestEnvironment(t)
+	runtimeGOOS = "darwin"
+	lookPathFn = func(file string) (string, error) {
+		return "/usr/bin/xcodebuild", nil
+	}
+	commandContextFn = helperCommandContext(t, logPath)
+	t.Cleanup(restore)
+
+	ipaPath := filepath.Join(tempDir, "artifacts", "Demo.ipa")
+	if err := os.MkdirAll(filepath.Dir(ipaPath), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error: %v", err)
+	}
+	if err := os.WriteFile(ipaPath, []byte("existing ipa"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error: %v", err)
+	}
+
+	result, err := Export(context.Background(), ExportOptions{
+		ArchivePath:   archivePath,
+		ExportOptions: exportOptionsPath,
+		IPAPath:       ipaPath,
+		Overwrite:     true,
+	})
+	if err != nil {
+		t.Fatalf("Export() error: %v", err)
+	}
+	if result.ArchivePath != archivePath {
+		t.Fatalf("expected archive path %q, got %q", archivePath, result.ArchivePath)
+	}
+	if result.IPAPath != "" {
+		t.Fatalf("expected no local ipa path for direct upload, got %q", result.IPAPath)
+	}
+	if result.BundleID != "com.example.demo" {
+		t.Fatalf("expected bundle id %q, got %q", "com.example.demo", result.BundleID)
+	}
+	if result.Version != "1.2.3" {
+		t.Fatalf("expected version %q, got %q", "1.2.3", result.Version)
+	}
+	if result.BuildNumber != "42" {
+		t.Fatalf("expected build number %q, got %q", "42", result.BuildNumber)
+	}
+
+	data, err := os.ReadFile(ipaPath)
+	if err != nil {
+		t.Fatalf("ReadFile() error: %v", err)
+	}
+	if string(data) != "existing ipa" {
+		t.Fatalf("expected existing IPA to be preserved, got %q", string(data))
+	}
+}
+
+func TestExportDirectUploadCreatesIPAParentDirectory(t *testing.T) {
+	tempDir := t.TempDir()
+	archivePath := filepath.Join(tempDir, "Demo.xcarchive")
+	if err := writeArchiveInfoPlist(archivePath); err != nil {
+		t.Fatalf("writeArchiveInfoPlist() error: %v", err)
+	}
+	exportOptionsPath := filepath.Join(tempDir, "ExportOptions.plist")
+	writeExportOptionsPlist(t, exportOptionsPath, map[string]any{"destination": "upload"})
+	logPath := filepath.Join(tempDir, "commands.log")
+
+	restore := overrideTestEnvironment(t)
+	runtimeGOOS = "darwin"
+	lookPathFn = func(file string) (string, error) {
+		return "/usr/bin/xcodebuild", nil
+	}
+	commandContextFn = helperCommandContext(t, logPath)
+	t.Cleanup(restore)
+
+	ipaPath := filepath.Join(tempDir, "nested", "output", "Demo.ipa")
+	result, err := Export(context.Background(), ExportOptions{
+		ArchivePath:   archivePath,
+		ExportOptions: exportOptionsPath,
+		IPAPath:       ipaPath,
+	})
+	if err != nil {
+		t.Fatalf("Export() error: %v", err)
+	}
+	if result.IPAPath != "" {
+		t.Fatalf("expected no local ipa path for direct upload, got %q", result.IPAPath)
+	}
+	if _, err := os.Stat(filepath.Dir(ipaPath)); err != nil {
+		t.Fatalf("expected IPA parent directory to exist, got %v", err)
+	}
+	if _, err := os.Stat(ipaPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected no IPA artifact to be written, got %v", err)
+	}
+}
+
+func TestExportDirectUploadReturnsArchiveInfoErrors(t *testing.T) {
+	tempDir := t.TempDir()
+	archivePath := filepath.Join(tempDir, "Demo.xcarchive")
+	if err := os.MkdirAll(archivePath, 0o755); err != nil {
+		t.Fatalf("MkdirAll() error: %v", err)
+	}
+	exportOptionsPath := filepath.Join(tempDir, "ExportOptions.plist")
+	writeExportOptionsPlist(t, exportOptionsPath, map[string]any{"destination": "upload"})
+	logPath := filepath.Join(tempDir, "commands.log")
+
+	restore := overrideTestEnvironment(t)
+	runtimeGOOS = "darwin"
+	lookPathFn = func(file string) (string, error) {
+		return "/usr/bin/xcodebuild", nil
+	}
+	commandContextFn = helperCommandContext(t, logPath)
+	t.Cleanup(restore)
+
+	_, err := Export(context.Background(), ExportOptions{
+		ArchivePath:   archivePath,
+		ExportOptions: exportOptionsPath,
+		IPAPath:       filepath.Join(tempDir, "Demo.ipa"),
+	})
+	if err == nil {
+		t.Fatal("expected archive metadata error, got nil")
+	}
+	if !strings.Contains(err.Error(), "read archive bundle info after direct upload") {
+		t.Fatalf("expected archive bundle info error, got %v", err)
+	}
+}
+
+func TestExportWarnsForBetaXcodeAppStoreExport(t *testing.T) {
+	tempDir := t.TempDir()
+	archivePath := filepath.Join(tempDir, "Demo.xcarchive")
+	if err := writeArchiveInfoPlist(archivePath); err != nil {
+		t.Fatalf("writeArchiveInfoPlist() error: %v", err)
+	}
+	exportOptionsPath := filepath.Join(tempDir, "ExportOptions.plist")
+	writeExportOptionsPlist(t, exportOptionsPath, map[string]any{
+		"destination":  "upload",
+		"method":       "app-store-connect",
+		"signingStyle": "automatic",
+	})
+	logPath := filepath.Join(tempDir, "commands.log")
+
+	restore := overrideTestEnvironment(t)
+	runtimeGOOS = "darwin"
+	lookPathFn = func(file string) (string, error) {
+		return "/usr/bin/xcodebuild", nil
+	}
+	commandContextFn = helperCommandContext(t, logPath)
+	t.Setenv("DEVELOPER_DIR", "/Applications/Xcode-beta.app/Contents/Developer")
+	t.Cleanup(restore)
+
+	var stderr bytes.Buffer
+	_, err := Export(context.Background(), ExportOptions{
+		ArchivePath:   archivePath,
+		ExportOptions: exportOptionsPath,
+		IPAPath:       filepath.Join(tempDir, "Demo.ipa"),
+		LogWriter:     &stderr,
+	})
+	if err != nil {
+		t.Fatalf("Export() error: %v", err)
+	}
+	if !strings.Contains(stderr.String(), `Warning: active Xcode developer directory "/Applications/Xcode-beta.app/Contents/Developer" appears to be a beta build`) {
+		t.Fatalf("expected beta Xcode warning, got %q", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "App Store review can later reject builds for unsupported SDK/Xcode") {
+		t.Fatalf("expected warning to explain App Store review risk, got %q", stderr.String())
+	}
+}
+
+func TestExportDoesNotWarnForStableXcodeAppStoreExport(t *testing.T) {
+	tempDir := t.TempDir()
+	archivePath := filepath.Join(tempDir, "Demo.xcarchive")
+	if err := writeArchiveInfoPlist(archivePath); err != nil {
+		t.Fatalf("writeArchiveInfoPlist() error: %v", err)
+	}
+	exportOptionsPath := filepath.Join(tempDir, "ExportOptions.plist")
+	writeExportOptionsPlist(t, exportOptionsPath, map[string]any{
+		"destination":  "upload",
+		"method":       "app-store-connect",
+		"signingStyle": "automatic",
+	})
+	logPath := filepath.Join(tempDir, "commands.log")
+
+	restore := overrideTestEnvironment(t)
+	runtimeGOOS = "darwin"
+	lookPathFn = func(file string) (string, error) {
+		return "/usr/bin/xcodebuild", nil
+	}
+	commandContextFn = helperCommandContext(t, logPath)
+	t.Setenv("DEVELOPER_DIR", "/Applications/Xcode-26.3.0.app/Contents/Developer")
+	t.Cleanup(restore)
+
+	var stderr bytes.Buffer
+	_, err := Export(context.Background(), ExportOptions{
+		ArchivePath:   archivePath,
+		ExportOptions: exportOptionsPath,
+		IPAPath:       filepath.Join(tempDir, "Demo.ipa"),
+		LogWriter:     &stderr,
+	})
+	if err != nil {
+		t.Fatalf("Export() error: %v", err)
+	}
+	if strings.Contains(stderr.String(), "beta build") {
+		t.Fatalf("did not expect beta Xcode warning, got %q", stderr.String())
+	}
+}
+
+func TestExportDoesNotWarnForBetaXcodeDevelopmentExport(t *testing.T) {
+	tempDir := t.TempDir()
+	archivePath := filepath.Join(tempDir, "Demo.xcarchive")
+	if err := writeArchiveInfoPlist(archivePath); err != nil {
+		t.Fatalf("writeArchiveInfoPlist() error: %v", err)
+	}
+	exportOptionsPath := filepath.Join(tempDir, "ExportOptions.plist")
+	writeExportOptionsPlist(t, exportOptionsPath, map[string]any{
+		"method":       "development",
+		"signingStyle": "automatic",
+	})
+	logPath := filepath.Join(tempDir, "commands.log")
+
+	restore := overrideTestEnvironment(t)
+	runtimeGOOS = "darwin"
+	lookPathFn = func(file string) (string, error) {
+		return "/usr/bin/xcodebuild", nil
+	}
+	commandContextFn = helperCommandContext(t, logPath)
+	t.Setenv("DEVELOPER_DIR", "/Applications/Xcode-beta.app/Contents/Developer")
+	t.Cleanup(restore)
+
+	var stderr bytes.Buffer
+	_, err := Export(context.Background(), ExportOptions{
+		ArchivePath:   archivePath,
+		ExportOptions: exportOptionsPath,
+		IPAPath:       filepath.Join(tempDir, "Demo.ipa"),
+		LogWriter:     &stderr,
+	})
+	if err != nil {
+		t.Fatalf("Export() error: %v", err)
+	}
+	if strings.Contains(stderr.String(), "beta build") {
+		t.Fatalf("did not expect beta Xcode warning, got %q", stderr.String())
+	}
+}
+
 func TestExportRejectsExistingIPAWithoutOverwrite(t *testing.T) {
 	tempDir := t.TempDir()
 	archivePath := filepath.Join(tempDir, "Demo.xcarchive")
@@ -394,10 +640,12 @@ func overrideTestEnvironment(t *testing.T) func() {
 	originalGOOS := runtimeGOOS
 	originalLookPath := lookPathFn
 	originalCommandContext := commandContextFn
+	originalActiveDeveloperDir := activeDeveloperDirFn
 	return func() {
 		runtimeGOOS = originalGOOS
 		lookPathFn = originalLookPath
 		commandContextFn = originalCommandContext
+		activeDeveloperDirFn = originalActiveDeveloperDir
 	}
 }
 
@@ -444,6 +692,19 @@ func TestXcodeHelperProcess(t *testing.T) {
 		os.Exit(0)
 	}
 
+	if len(commandArgs) >= 2 && commandArgs[0] == "agvtool" {
+		switch commandArgs[1] {
+		case "what-marketing-version":
+			fmt.Fprint(os.Stdout, "App=1.2.3\nExtension=2.0.0\n")
+			os.Exit(0)
+		case "what-version":
+			fmt.Fprint(os.Stdout, "App=41\nExtension=7\n")
+			os.Exit(0)
+		case "new-marketing-version", "new-version", "next-version":
+			os.Exit(0)
+		}
+	}
+
 	if len(commandArgs) >= 1 && commandArgs[0] == "xcodebuild" && helperContainsArg(commandArgs[1:], "archive") {
 		archivePath, err := valueAfter(commandArgs[1:], "-archivePath")
 		if err != nil {
@@ -463,9 +724,17 @@ func TestXcodeHelperProcess(t *testing.T) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(2)
 		}
+		exportOptionsPath, err := valueAfter(commandArgs[1:], "-exportOptionsPlist")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
 		if err := os.MkdirAll(exportPath, 0o755); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(2)
+		}
+		if isDirectUploadMode(exportOptionsPath) {
+			os.Exit(0)
 		}
 		if err := writeTestIPA(filepath.Join(exportPath, "Exported.ipa")); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -530,6 +799,18 @@ func writeArchiveInfoPlist(archivePath string) error {
 		return err
 	}
 	return os.WriteFile(filepath.Join(archivePath, "Info.plist"), data, 0o644)
+}
+
+func writeExportOptionsPlist(t *testing.T, path string, payload map[string]any) {
+	t.Helper()
+
+	data, err := plist.Marshal(payload, plist.XMLFormat)
+	if err != nil {
+		t.Fatalf("plist.Marshal() error: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("WriteFile() error: %v", err)
+	}
 }
 
 func writeTestIPA(path string) error {
