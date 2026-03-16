@@ -77,6 +77,48 @@ func TestXcodeExportWaitRequiresPositivePollInterval(t *testing.T) {
 	}
 }
 
+func TestXcodeExportAllowsPollIntervalWithoutWait(t *testing.T) {
+	restore := overrideXcodeCommandTestHooks(t)
+	defer restore()
+
+	runExport = func(context.Context, localxcode.ExportOptions) (*localxcode.ExportResult, error) {
+		return &localxcode.ExportResult{
+			ArchivePath: "/tmp/Demo.xcarchive",
+			IPAPath:     "/tmp/Demo.ipa",
+			BundleID:    "com.example.demo",
+			Version:     "1.2.3",
+			BuildNumber: "42",
+		}, nil
+	}
+
+	cmd := XcodeExportCommand()
+	cmd.FlagSet.SetOutput(io.Discard)
+	if err := cmd.FlagSet.Parse([]string{
+		"--archive-path", "Demo.xcarchive",
+		"--export-options", "ExportOptions.plist",
+		"--ipa-path", "Demo.ipa",
+		"--poll-interval", "0s",
+		"--output", "json",
+	}); err != nil {
+		t.Fatalf("failed to parse flags: %v", err)
+	}
+
+	var runErr error
+	stdout, stderr := captureCommandOutput(t, func() error {
+		runErr = cmd.Exec(context.Background(), nil)
+		return runErr
+	})
+	if runErr != nil {
+		t.Fatalf("Exec() error: %v", runErr)
+	}
+	if strings.TrimSpace(stdout) == "" {
+		t.Fatal("expected JSON output")
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected no stderr output without --wait, got %q", stderr)
+	}
+}
+
 func TestXcodeExportWaitPollsForUploadedBuild(t *testing.T) {
 	restore := overrideXcodeCommandTestHooks(t)
 	defer restore()
@@ -188,6 +230,59 @@ func TestXcodeExportWaitPollsForUploadedBuild(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "Build build-123 discovered; waiting for processing...") {
 		t.Fatalf("expected processing wait message, got %q", stderr)
+	}
+}
+
+func TestXcodeExportWaitRejectsNilProcessedBuildResponse(t *testing.T) {
+	restore := overrideXcodeCommandTestHooks(t)
+	defer restore()
+
+	isDirectUploadExportOptionsFn = func(string) bool { return true }
+	runExport = func(context.Context, localxcode.ExportOptions) (*localxcode.ExportResult, error) {
+		return &localxcode.ExportResult{
+			ArchivePath: "/tmp/Demo.xcarchive",
+			BundleID:    "com.example.demo",
+			Version:     "1.2.3",
+			BuildNumber: "42",
+		}, nil
+	}
+	inferArchivePlatformFn = func(string) (string, error) { return "IOS", nil }
+	getASCClientFn = func() (*asc.Client, error) { return &asc.Client{}, nil }
+	resolveAppIDWithExactLookupFn = func(context.Context, *asc.Client, string) (string, error) {
+		return "123456789", nil
+	}
+	waitForBuildByNumberOrUploadFailureFn = func(context.Context, *asc.Client, string, string, string, string, string, time.Duration) (*asc.BuildResponse, error) {
+		return &asc.BuildResponse{
+			Data: asc.Resource[asc.BuildAttributes]{
+				ID: "build-123",
+			},
+		}, nil
+	}
+	waitForBuildProcessingFn = func(context.Context, *asc.Client, string, time.Duration) (*asc.BuildResponse, error) {
+		return nil, nil
+	}
+
+	cmd := XcodeExportCommand()
+	cmd.FlagSet.SetOutput(io.Discard)
+	if err := cmd.FlagSet.Parse([]string{
+		"--archive-path", "Demo.xcarchive",
+		"--export-options", "ExportOptions.plist",
+		"--ipa-path", "Demo.ipa",
+		"--wait",
+	}); err != nil {
+		t.Fatalf("failed to parse flags: %v", err)
+	}
+
+	var runErr error
+	_, _ = captureCommandOutput(t, func() error {
+		runErr = cmd.Exec(context.Background(), nil)
+		return runErr
+	})
+	if runErr == nil {
+		t.Fatal("expected error for nil processed build response")
+	}
+	if !strings.Contains(runErr.Error(), "failed to resolve processed build state for build \"build-123\"") {
+		t.Fatalf("expected nil processed build error, got %v", runErr)
 	}
 }
 

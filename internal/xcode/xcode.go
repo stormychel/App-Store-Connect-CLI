@@ -638,10 +638,25 @@ func inferArchivePlatformFromAppBundle(archivePath string, appProps map[string]a
 	if strings.TrimSpace(applicationPath) == "" {
 		return "", fmt.Errorf("archive Info.plist missing ApplicationPath")
 	}
-	appInfoPath := filepath.Join(archivePath, "Products", filepath.FromSlash(applicationPath), "Info.plist")
-	data, err := os.ReadFile(appInfoPath)
-	if err != nil {
-		return "", fmt.Errorf("read archived app Info.plist: %w", err)
+
+	appBundlePath := filepath.Join(archivePath, "Products", filepath.FromSlash(applicationPath))
+	candidatePaths := []string{filepath.Join(appBundlePath, "Info.plist")}
+	if strings.HasSuffix(strings.ToLower(strings.TrimSpace(appBundlePath)), ".app") {
+		candidatePaths = append(candidatePaths, filepath.Join(appBundlePath, "Contents", "Info.plist"))
+	}
+
+	var (
+		data    []byte
+		lastErr error
+	)
+	for _, candidatePath := range candidatePaths {
+		data, lastErr = os.ReadFile(candidatePath)
+		if lastErr == nil {
+			break
+		}
+	}
+	if lastErr != nil {
+		return "", fmt.Errorf("read archived app Info.plist: %w", lastErr)
 	}
 	var payload map[string]any
 	if _, err := plist.Unmarshal(data, &payload); err != nil {

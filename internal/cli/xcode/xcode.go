@@ -219,7 +219,7 @@ Examples:
 				fmt.Fprintln(os.Stderr, "Error: --ipa-path is required")
 				return flag.ErrHelp
 			}
-			if *pollInterval <= 0 {
+			if *wait && *pollInterval <= 0 {
 				return shared.UsageError("--poll-interval must be greater than 0")
 			}
 			exportOptionsPath := strings.TrimSpace(*exportOptions)
@@ -274,10 +274,14 @@ Examples:
 				if buildResp == nil {
 					return fmt.Errorf("xcode export: failed to resolve build for version %q build %q", result.Version, result.BuildNumber)
 				}
-				fmt.Fprintf(os.Stderr, "Build %s discovered; waiting for processing...\n", buildResp.Data.ID)
-				buildResp, err = waitForBuildProcessingFn(waitCtx, client, buildResp.Data.ID, *pollInterval)
+				discoveredBuildID := strings.TrimSpace(buildResp.Data.ID)
+				fmt.Fprintf(os.Stderr, "Build %s discovered; waiting for processing...\n", discoveredBuildID)
+				buildResp, err = waitForBuildProcessingFn(waitCtx, client, discoveredBuildID, *pollInterval)
 				if err != nil {
 					return fmt.Errorf("xcode export: %w", err)
+				}
+				if buildResp == nil {
+					return fmt.Errorf("xcode export: failed to resolve processed build state for build %q", discoveredBuildID)
 				}
 				commandResult.BuildID = strings.TrimSpace(buildResp.Data.ID)
 				commandResult.ProcessingState = strings.ToUpper(strings.TrimSpace(buildResp.Data.Attributes.ProcessingState))
