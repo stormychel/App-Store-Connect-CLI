@@ -568,6 +568,9 @@ func TestWebAuthCapabilitiesHelpContrastsPublicCapabilities(t *testing.T) {
 	if !strings.Contains(usage, "--key-id") {
 		t.Fatalf("expected usage to describe --key-id, got %q", usage)
 	}
+	if !strings.Contains(usage, `asc web auth capabilities --apple-id "user@example.com"`) {
+		t.Fatalf("expected usage to recommend --apple-id like other web commands, got %q", usage)
+	}
 	if !strings.Contains(usage, "documented role capabilities") {
 		t.Fatalf("expected usage to mention documented capabilities, got %q", usage)
 	}

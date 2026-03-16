@@ -129,13 +129,14 @@ JSON output includes:
   - reference limitations and verification date
 
 If --key-id is omitted, the command resolves the current API key ID from local asc API auth and uses the active web session only for the exact web lookup.
+For deterministic cache selection, prefer passing --apple-id like other "asc web" commands.
 
 ` + webWarningText + `
 
 Examples:
-  asc web auth capabilities
-  asc web auth capabilities --output json
-  asc web auth capabilities --key-id "39MX87M9Y4" --output table`,
+  asc web auth capabilities --apple-id "user@example.com"
+  asc web auth capabilities --apple-id "user@example.com" --output json
+  asc web auth capabilities --apple-id "user@example.com" --key-id "39MX87M9Y4" --output table`,
 		FlagSet:   fs,
 		UsageFunc: shared.DefaultUsageFunc,
 		Exec: func(ctx context.Context, args []string) error {
