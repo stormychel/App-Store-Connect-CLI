@@ -1156,7 +1156,7 @@ func DeleteAllSessions() error {
 		if deleteErr := deleteAllFromFile(); deleteErr != nil {
 			err = deleteErr
 		} else {
-			err = clearLastKeyInFile()
+			err = clearLastSessionMarker()
 		}
 		if selection.fallbackKeychain {
 			err = joinDeleteErrors(err, ignoreUnavailableKeyringError(deleteAllFromKeychain()))
