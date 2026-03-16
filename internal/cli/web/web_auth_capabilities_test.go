@@ -571,6 +571,9 @@ func TestWebAuthCapabilitiesHelpContrastsPublicCapabilities(t *testing.T) {
 	if !strings.Contains(usage, "documented role capabilities") {
 		t.Fatalf("expected usage to mention documented capabilities, got %q", usage)
 	}
+	if !strings.Contains(usage, "flattened documented access with role provenance") {
+		t.Fatalf("expected usage to mention agent-facing json metadata, got %q", usage)
+	}
 }
 
 func boolPtr(value bool) *bool {

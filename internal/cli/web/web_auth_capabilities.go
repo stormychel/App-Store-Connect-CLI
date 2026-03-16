@@ -114,11 +114,19 @@ func WebAuthCapabilitiesCommand() *ffcli.Command {
 	return &ffcli.Command{
 		Name:       "capabilities",
 		ShortUsage: "asc web auth capabilities [--key-id ID] [flags]",
-		ShortHelp:  "[experimental] Show exact web-visible API key roles and documented capabilities.",
+		ShortHelp:  "[experimental] Show exact web-visible API key roles and full documented capability metadata.",
 		LongHelp: `EXPERIMENTAL / UNOFFICIAL / DISCOURAGED
 
 Return exact role metadata for an App Store Connect API key using Apple web-session endpoints, then map those roles to the bundled Apple capability reference.
 Unlike "asc auth capabilities", which probes effective public-API access, this command reads the web-visible key role assignment directly and expands it with documented role capabilities.
+
+JSON output includes:
+  - exact role codes and role details
+  - aggregated capability groups
+  - flattened documented access with role provenance
+  - bundled reference sources
+  - key-specific notes and scope metadata
+  - reference limitations and verification date
 
 If --key-id is omitted, the command resolves the current API key ID from local asc API auth and uses the active web session only for the exact web lookup.
 
