@@ -583,7 +583,7 @@ func TestFindRecentBuildUploadIDPaginatesUntilUploadWithinCompletedExportWindow(
 	}
 }
 
-func TestFindRecentBuildUploadIDStopsPagingAfterCrossingExportStart(t *testing.T) {
+func TestFindRecentBuildUploadIDContinuesPagingForCreatedDateOnlyUploads(t *testing.T) {
 	originalTransport := http.DefaultTransport
 	t.Cleanup(func() {
 		http.DefaultTransport = originalTransport
@@ -626,7 +626,7 @@ func TestFindRecentBuildUploadIDStopsPagingAfterCrossingExportStart(t *testing.T
 				"data": [
 					{
 						"type": "buildUploads",
-						"id": "too-old",
+						"id": "older-uploaded",
 						"attributes": {
 							"cfBundleShortVersionString": "1.2.3",
 							"cfBundleVersion": "42",
@@ -640,8 +640,21 @@ func TestFindRecentBuildUploadIDStopsPagingAfterCrossingExportStart(t *testing.T
 				}
 			}`)
 		case "page-3":
-			t.Fatal("did not expect third page fetch once uploads were older than export start")
-			return nil, nil
+			return xcodeCommandJSONResponse(`{
+				"data": [
+					{
+						"type": "buildUploads",
+						"id": "current-export-created-only",
+						"attributes": {
+							"cfBundleShortVersionString": "1.2.3",
+							"cfBundleVersion": "42",
+							"platform": "IOS",
+							"createdDate": "2026-03-16T12:00:20Z"
+						}
+					}
+				],
+				"links": {}
+			}`)
 		default:
 			return nil, fmt.Errorf("unexpected cursor: %q", req.URL.Query().Get("cursor"))
 		}
@@ -654,14 +667,14 @@ func TestFindRecentBuildUploadIDStopsPagingAfterCrossingExportStart(t *testing.T
 	if err != nil {
 		t.Fatalf("findRecentBuildUploadID() error: %v", err)
 	}
-	if found {
-		t.Fatalf("expected no upload after paging past the export window, got %q", uploadID)
+	if !found {
+		t.Fatal("expected to keep paging until a createdDate-only upload in the export window was found")
 	}
-	if uploadID != "" {
-		t.Fatalf("expected empty upload ID after paging past the export window, got %q", uploadID)
+	if uploadID != "current-export-created-only" {
+		t.Fatalf("expected createdDate-only upload from later page, got %q", uploadID)
 	}
-	if requests != 2 {
-		t.Fatalf("expected 2 paginated build upload requests before stopping, got %d", requests)
+	if requests != 3 {
+		t.Fatalf("expected 3 paginated build upload requests before finding createdDate-only upload, got %d", requests)
 	}
 }
 

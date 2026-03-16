@@ -366,9 +366,9 @@ func findRecentBuildUploadID(ctx context.Context, client *asc.Client, appID, ver
 				continue
 			}
 			if !exportStartedAt.IsZero() && observedAt.Before(exportStartedAt) {
-				// Results are sorted by uploadedDate descending, so once we fall below
-				// the export start no later page can re-enter the current export window.
-				return "", false, nil
+				// We may be looking at createdDate when uploadedDate is absent, so an older
+				// uploaded page cannot safely stop pagination for later createdDate-only rows.
+				continue
 			}
 			return strings.TrimSpace(upload.ID), true, nil
 		}
