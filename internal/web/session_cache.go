@@ -1141,7 +1141,7 @@ func DeleteSession(username string) error {
 				if fallbackErr := deleteSessionFromFile(key); fallbackErr != nil {
 					err = fallbackErr
 				} else {
-					err = clearLastSessionMarker()
+					err = clearLastKeyInFileIfMatches(key)
 				}
 			} else {
 				err = deleteErr

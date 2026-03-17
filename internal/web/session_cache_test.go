@@ -702,6 +702,51 @@ func TestDeleteSessionKeychainBackendAlsoRemovesFileCache(t *testing.T) {
 	}
 }
 
+func TestDeleteSessionKeychainFallbackPreservesDifferentFileLastSessionMarker(t *testing.T) {
+	withUnavailableSessionKeyring(t)
+	t.Setenv(webSessionCacheEnabledEnv, "1")
+	t.Setenv(webSessionBackendEnv, "keychain")
+	t.Setenv(webSessionCacheDirEnv, filepath.Join(t.TempDir(), "web-cache"))
+
+	firstKey := webSessionCacheKey("first@example.com")
+	secondKey := webSessionCacheKey("second@example.com")
+	firstSession := persistedSession{
+		Version:   webSessionCacheVersion,
+		UpdatedAt: time.Now().UTC(),
+	}
+	secondSession := persistedSession{
+		Version:   webSessionCacheVersion,
+		UpdatedAt: time.Now().UTC(),
+	}
+
+	if err := writeSessionToFile(firstKey, firstSession); err != nil {
+		t.Fatalf("writeSessionToFile first error: %v", err)
+	}
+	if err := writeSessionToFile(secondKey, secondSession); err != nil {
+		t.Fatalf("writeSessionToFile second error: %v", err)
+	}
+
+	if err := DeleteSession("first@example.com"); err != nil {
+		t.Fatalf("DeleteSession error: %v", err)
+	}
+
+	if _, ok, err := readSessionFromFile(firstKey); err != nil {
+		t.Fatalf("readSessionFromFile first error: %v", err)
+	} else if ok {
+		t.Fatal("expected deleted fallback file-backed session to be removed")
+	}
+	if _, ok, err := readSessionFromFile(secondKey); err != nil {
+		t.Fatalf("readSessionFromFile second error: %v", err)
+	} else if !ok {
+		t.Fatal("expected unrelated fallback file-backed session to remain")
+	}
+	if lastKey, ok, err := readLastKeyFromFile(); err != nil {
+		t.Fatalf("readLastKeyFromFile error: %v", err)
+	} else if !ok || lastKey != secondKey {
+		t.Fatalf("expected last-session marker %q to remain, got %q (ok=%v)", secondKey, lastKey, ok)
+	}
+}
+
 func TestHydrateCookieJarSkipsExpiredCookies(t *testing.T) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
