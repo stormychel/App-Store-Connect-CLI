@@ -619,8 +619,10 @@ func findPreReleaseVersionIDsForBuildsList(
 		for _, preReleaseVersion := range page.Data {
 			// ASC's version filter can return dotted-version near-matches like
 			// 1.1 and 1.1.0 together, so enforce exact matching client-side
-			// before converting pre-release versions into build filters.
-			if strings.TrimSpace(preReleaseVersion.Attributes.Version) != version {
+			// when the response includes attributes.version. If ASC omits the
+			// attribute entirely, trust the server-side filter instead.
+			versionAttr := strings.TrimSpace(preReleaseVersion.Attributes.Version)
+			if versionAttr != "" && versionAttr != version {
 				continue
 			}
 			id := strings.TrimSpace(preReleaseVersion.ID)

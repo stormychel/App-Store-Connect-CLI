@@ -30,8 +30,9 @@ func BuildsCountCommand() *ffcli.Command {
 		ShortHelp:  "Count total builds for an app in App Store Connect.",
 		LongHelp: `Count the total number of builds for an app in App Store Connect.
 
-Uses meta.paging.total from the API response — a single request with limit=1
-is sufficient, so this is fast regardless of how many builds exist.
+Prefers meta.paging.total from the API response, so most counts finish in a
+single request with limit=1. If App Store Connect omits the total, falls back
+to paginating and counting the matching builds.
 
 Supports the same filters as "asc builds list" so you can count builds
 matching specific criteria without fetching them all.
@@ -125,9 +126,10 @@ Examples:
 			}
 
 			// Some ASC responses omit paging.total. Fall back to paginating and
-			// counting the matching builds explicitly instead of failing.
+			// counting matching pages incrementally instead of failing.
 			paginateOpts := append([]asc.BuildsOption{asc.WithBuildsLimit(200)}, filterOpts...)
-			paginated, err := shared.PaginateWithSpinner(requestCtx,
+			total, err = countBuildsViaPagination(
+				requestCtx,
 				func(ctx context.Context) (asc.PaginatedResponse, error) {
 					return client.GetBuilds(ctx, resolvedAppID, paginateOpts...)
 				},
@@ -139,13 +141,35 @@ Examples:
 				return fmt.Errorf("builds count: failed to count via pagination: %w", err)
 			}
 
-			builds, ok := paginated.(*asc.BuildsResponse)
-			if !ok {
-				return fmt.Errorf("builds count: unexpected paginated response type %T", paginated)
-			}
-
-			result := &asc.BuildsCountResult{AppID: resolvedAppID, Total: len(builds.Data)}
+			result := &asc.BuildsCountResult{AppID: resolvedAppID, Total: total}
 			return shared.PrintOutput(result, *output.Output, *output.Pretty)
 		},
 	}
+}
+
+func countBuildsViaPagination(
+	ctx context.Context,
+	fetch shared.FetchFunc,
+	next asc.PaginateFunc,
+) (int, error) {
+	total := 0
+	err := shared.WithSpinner("", func() error {
+		firstPage, err := fetch(ctx)
+		if err != nil {
+			return err
+		}
+
+		return asc.PaginateEach(ctx, firstPage, next, func(page asc.PaginatedResponse) error {
+			builds, ok := page.(*asc.BuildsResponse)
+			if !ok {
+				return fmt.Errorf("unexpected pagination response type %T", page)
+			}
+			total += len(builds.Data)
+			return nil
+		})
+	})
+	if err != nil {
+		return 0, err
+	}
+	return total, nil
 }

@@ -43,7 +43,7 @@ func TestBuildsListAllowsIndependentVersionAndBuildNumberFilters(t *testing.T) {
 			body := `{
 				"data":[
 					{"type":"preReleaseVersions","id":"prv-1","attributes":{"version":"1.2.3","platform":"IOS"}},
-					{"type":"preReleaseVersions","id":"prv-2","attributes":{"version":"1.2.3","platform":"VISION_OS"}}
+					{"type":"preReleaseVersions","id":"prv-2"}
 				],
 				"links":{"next":""}
 			}`

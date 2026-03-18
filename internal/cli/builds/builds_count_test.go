@@ -6,6 +6,8 @@ import (
 	"flag"
 	"strings"
 	"testing"
+
+	"github.com/rudrankriyam/App-Store-Connect-CLI/internal/asc"
 )
 
 func TestBuildsCountCommand_MissingApp(t *testing.T) {
@@ -119,5 +121,47 @@ func TestBuildsCountCommand_LongHelpHasExamples(t *testing.T) {
 
 	if !strings.Contains(cmd.LongHelp, "asc builds count") {
 		t.Errorf("expected LongHelp to contain example invocation, got %q", cmd.LongHelp)
+	}
+}
+
+func TestCountBuildsViaPaginationCountsEachPage(t *testing.T) {
+	t.Setenv("ASC_SPINNER_DISABLED", "1")
+
+	firstPage := &asc.BuildsResponse{
+		Data: []asc.Resource[asc.BuildAttributes]{
+			{ID: "build-1"},
+			{ID: "build-2"},
+		},
+		Links: asc.Links{Next: "next-page"},
+	}
+	secondPage := &asc.BuildsResponse{
+		Data: []asc.Resource[asc.BuildAttributes]{
+			{ID: "build-3"},
+		},
+		Links: asc.Links{},
+	}
+
+	nextCalls := 0
+	total, err := countBuildsViaPagination(
+		context.Background(),
+		func(context.Context) (asc.PaginatedResponse, error) {
+			return firstPage, nil
+		},
+		func(_ context.Context, nextURL string) (asc.PaginatedResponse, error) {
+			nextCalls++
+			if nextURL != "next-page" {
+				t.Fatalf("expected next-page URL, got %q", nextURL)
+			}
+			return secondPage, nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("countBuildsViaPagination returned error: %v", err)
+	}
+	if nextCalls != 1 {
+		t.Fatalf("expected 1 next-page request, got %d", nextCalls)
+	}
+	if total != 3 {
+		t.Fatalf("expected total=3, got %d", total)
 	}
 }
