@@ -372,16 +372,20 @@ func (c *Client) AddBetaGroupsToBuildWithNotify(ctx context.Context, buildID str
 	if notify {
 		detail, err := c.GetBuildBuildBetaDetail(ctx, buildID)
 		if err != nil {
-			return err
+			return buildBetaGroupsNotifyPartialError(buildID, "checking notification state", err)
 		}
 		if detail.Data.Attributes.AutoNotifyEnabled {
 			return nil
 		}
 		if _, err := c.CreateBuildBetaNotification(ctx, buildID); err != nil {
-			return err
+			return buildBetaGroupsNotifyPartialError(buildID, "notifying testers", err)
 		}
 	}
 	return nil
+}
+
+func buildBetaGroupsNotifyPartialError(buildID, step string, err error) error {
+	return fmt.Errorf("beta groups were added to build %q, but %s failed: %w", buildID, step, err)
 }
 
 // RemoveBetaGroupsFromBuild removes beta groups from a build.

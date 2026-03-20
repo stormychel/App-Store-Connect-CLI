@@ -1658,6 +1658,85 @@ func TestAddBetaGroupsToBuildWithNotify_SkipsBuildBetaNotificationWhenAutoNotify
 	}
 }
 
+func TestAddBetaGroupsToBuildWithNotify_BuildBetaDetailFailureExplainsGroupsAlreadyAdded(t *testing.T) {
+	responses := []*http.Response{
+		jsonResponse(http.StatusNoContent, ``),
+		jsonResponse(http.StatusConflict, `{"errors":[{"code":"STATE_ERROR.ENTITY_STATE_INVALID","title":"Temporary outage","detail":"try again later"}]}`),
+	}
+	requestCount := 0
+	client := newTestClient(t, func(req *http.Request) {
+		requestCount++
+		switch requestCount {
+		case 1:
+			if req.Method != http.MethodPost || req.URL.Path != "/v1/builds/build-1/relationships/betaGroups" {
+				t.Fatalf("unexpected request %d: %s %s", requestCount, req.Method, req.URL.String())
+			}
+		case 2:
+			if req.Method != http.MethodGet || req.URL.Path != "/v1/builds/build-1/buildBetaDetail" {
+				t.Fatalf("unexpected request %d: %s %s", requestCount, req.Method, req.URL.String())
+			}
+		default:
+			t.Fatalf("unexpected request %d: %s %s", requestCount, req.Method, req.URL.String())
+		}
+	}, responses...)
+
+	err := client.AddBetaGroupsToBuildWithNotify(context.Background(), "build-1", []string{"group-1"}, true)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), `beta groups were added to build "build-1", but checking notification state failed`) {
+		t.Fatalf("expected partial-success detail fetch error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "Temporary outage: try again later") {
+		t.Fatalf("expected underlying API error, got %v", err)
+	}
+	if requestCount != 2 {
+		t.Fatalf("expected 2 requests, got %d", requestCount)
+	}
+}
+
+func TestAddBetaGroupsToBuildWithNotify_NotificationFailureExplainsGroupsAlreadyAdded(t *testing.T) {
+	responses := []*http.Response{
+		jsonResponse(http.StatusNoContent, ``),
+		jsonResponse(http.StatusOK, `{"data":{"type":"buildBetaDetails","id":"detail-1","attributes":{"autoNotifyEnabled":false}}}`),
+		jsonResponse(http.StatusConflict, `{"errors":[{"code":"STATE_ERROR.ENTITY_STATE_INVALID","title":"There is a problem with the request entity","detail":"Auto-notify already enabled"}]}`),
+	}
+	requestCount := 0
+	client := newTestClient(t, func(req *http.Request) {
+		requestCount++
+		switch requestCount {
+		case 1:
+			if req.Method != http.MethodPost || req.URL.Path != "/v1/builds/build-1/relationships/betaGroups" {
+				t.Fatalf("unexpected request %d: %s %s", requestCount, req.Method, req.URL.String())
+			}
+		case 2:
+			if req.Method != http.MethodGet || req.URL.Path != "/v1/builds/build-1/buildBetaDetail" {
+				t.Fatalf("unexpected request %d: %s %s", requestCount, req.Method, req.URL.String())
+			}
+		case 3:
+			if req.Method != http.MethodPost || req.URL.Path != "/v1/buildBetaNotifications" {
+				t.Fatalf("unexpected request %d: %s %s", requestCount, req.Method, req.URL.String())
+			}
+		default:
+			t.Fatalf("unexpected request %d: %s %s", requestCount, req.Method, req.URL.String())
+		}
+	}, responses...)
+
+	err := client.AddBetaGroupsToBuildWithNotify(context.Background(), "build-1", []string{"group-1"}, true)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), `beta groups were added to build "build-1", but notifying testers failed`) {
+		t.Fatalf("expected partial-success notification error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "Auto-notify already enabled") {
+		t.Fatalf("expected underlying API error, got %v", err)
+	}
+	if requestCount != 3 {
+		t.Fatalf("expected 3 requests, got %d", requestCount)
+	}
+}
+
 func TestRemoveBetaGroupsFromBuild_SendsRequest(t *testing.T) {
 	response := jsonResponse(http.StatusNoContent, ``)
 	client := newTestClient(t, func(req *http.Request) {
