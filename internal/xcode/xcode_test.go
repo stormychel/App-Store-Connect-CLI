@@ -535,6 +535,33 @@ func TestParseBuildStatusOutputCollectsProcessingErrors(t *testing.T) {
 	}
 }
 
+func TestParseBuildStatusOutputKeepsProcessingErrorsAfterUppercaseMetadata(t *testing.T) {
+	result := parseBuildStatusOutput(`
+		BUILD-STATUS: FAILED
+		PROCESSING-ERRORS:
+		SERVER-WARNING: Keep-alive warning
+		ERROR: Validation details follow
+		description : Invalid Siri Support. App Intent description cannot contain apple. (90626)
+		IMPORT-STATUS: COMPLETE
+	`)
+
+	if result.BuildStatus != "FAILED" {
+		t.Fatalf("expected build status FAILED, got %q", result.BuildStatus)
+	}
+	if result.ImportStatus != "COMPLETE" {
+		t.Fatalf("expected import status COMPLETE, got %q", result.ImportStatus)
+	}
+	if len(result.ProcessingErrors) != 2 {
+		t.Fatalf("expected 2 processing errors, got %+v", result.ProcessingErrors)
+	}
+	if result.ProcessingErrors[0] != "ERROR: Validation details follow" {
+		t.Fatalf("unexpected first processing error: %+v", result.ProcessingErrors)
+	}
+	if result.ProcessingErrors[1] != "Invalid Siri Support. App Intent description cannot contain apple. (90626)" {
+		t.Fatalf("unexpected second processing error: %+v", result.ProcessingErrors)
+	}
+}
+
 func TestParseBuildStatusOutputHandlesLongProcessingErrorLines(t *testing.T) {
 	longDetail := strings.Repeat("x", 70*1024)
 	result := parseBuildStatusOutput(

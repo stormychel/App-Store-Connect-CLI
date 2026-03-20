@@ -753,7 +753,7 @@ func parseBuildStatusJSONOutput(output string) (*BuildStatusResult, bool) {
 	if result.BuildStatus == "" && result.DeliveryUUID == "" && result.ImportStatus == "" && len(result.ProcessingErrors) == 0 {
 		return nil, false
 	}
-	result.ProcessingErrors = collectUniqueBuildStatusDetails(result.ProcessingErrors)
+	result.ProcessingErrors = UniqueDiagnosticDetails(result.ProcessingErrors)
 	return result, true
 }
 
@@ -776,7 +776,7 @@ func populateBuildStatusResultFromJSON(result *BuildStatusResult, value any) {
 	switch typed := value.(type) {
 	case map[string]any:
 		for key, nested := range typed {
-			switch normalizeBuildStatusJSONKey(key) {
+			switch normalizeBuildStatusKey(key) {
 			case "buildstatus":
 				if result.BuildStatus == "" {
 					result.BuildStatus = jsonStringValue(nested)
@@ -818,7 +818,7 @@ func extractBuildStatusJSONProcessingErrors(value any) []string {
 	case map[string]any:
 		var details []string
 		for key, nested := range typed {
-			switch normalizeBuildStatusJSONKey(key) {
+			switch normalizeBuildStatusKey(key) {
 			case "code", "serverwarning", "serverwarnings":
 				continue
 			case "description", "detail", "details", "message", "messages":
@@ -843,7 +843,7 @@ func jsonStringValue(value any) string {
 	return strings.TrimSpace(text)
 }
 
-func normalizeBuildStatusJSONKey(key string) string {
+func normalizeBuildStatusKey(key string) string {
 	normalized := strings.ToLower(strings.TrimSpace(key))
 	normalized = strings.ReplaceAll(normalized, "-", "")
 	normalized = strings.ReplaceAll(normalized, "_", "")
@@ -863,7 +863,7 @@ func parseBuildStatusTextOutput(output string) *BuildStatusResult {
 			continue
 		}
 		if inProcessingErrors {
-			if key, value, ok := parseBuildStatusField(line); ok {
+			if key, value, ok := parseBuildStatusField(line); ok && isBuildStatusSummaryField(key) {
 				inProcessingErrors = false
 				assignBuildStatusField(result, key, value)
 				continue
@@ -885,7 +885,7 @@ func parseBuildStatusTextOutput(output string) *BuildStatusResult {
 	return result
 }
 
-func collectUniqueBuildStatusDetails(values []string) []string {
+func UniqueDiagnosticDetails(values []string) []string {
 	seen := make(map[string]struct{}, len(values))
 	details := make([]string, 0, len(values))
 	for _, value := range values {
@@ -935,21 +935,30 @@ func assignBuildStatusField(result *BuildStatusResult, key, value string) {
 	if result == nil {
 		return
 	}
-	switch key {
-	case "BUILD-STATUS":
+	switch normalizeBuildStatusKey(key) {
+	case "buildstatus":
 		result.BuildStatus = value
-	case "DELIVERY-UUID":
+	case "deliveryuuid", "deliveryid":
 		result.DeliveryUUID = value
-	case "IMPORT-STATUS":
+	case "importstatus":
 		result.ImportStatus = value
+	}
+}
+
+func isBuildStatusSummaryField(key string) bool {
+	switch normalizeBuildStatusKey(key) {
+	case "buildstatus", "deliveryuuid", "deliveryid", "importstatus":
+		return true
+	default:
+		return false
 	}
 }
 
 func parseBuildStatusProcessingError(line string) string {
 	key, value, ok := parseBuildStatusMetadataField(line)
 	if ok {
-		switch strings.ToLower(key) {
-		case "server_warning", "code":
+		switch normalizeBuildStatusKey(key) {
+		case "serverwarning", "serverwarnings", "code":
 			return ""
 		case "description":
 			return value
