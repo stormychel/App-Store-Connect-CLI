@@ -386,6 +386,84 @@ func TestWaitForBuildByNumberOrUploadFailureFallsBackWhenLinkedBuildLookupFails(
 	}
 }
 
+func TestWaitForBuildByNumberOrUploadFailureReturnsUploadLookupErrors(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	client := newBuildWaitTestClient(t, func(req *http.Request) (*http.Response, error) {
+		if req.Method != http.MethodGet {
+			return nil, fmt.Errorf("expected GET, got %s", req.Method)
+		}
+
+		switch req.URL.Path {
+		case "/v1/buildUploads/upload-current":
+			return buildWaitJSONStatusResponse(http.StatusUnauthorized, `{
+				"errors": [
+					{"status": "401", "code": "UNAUTHORIZED", "title": "unauthorized"}
+				]
+			}`)
+		case "/v1/preReleaseVersions":
+			cancel()
+			return buildWaitJSONResponse(`{"data":[]}`)
+		default:
+			return nil, fmt.Errorf("unexpected path: %s", req.URL.Path)
+		}
+	})
+
+	_, err := WaitForBuildByNumberOrUploadFailure(ctx, client, "app-1", "upload-current", "1.2.3", "42", "IOS", time.Millisecond)
+	if err == nil {
+		t.Fatal("expected upload lookup error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unauthorized") {
+		t.Fatalf("expected unauthorized upload lookup error, got %v", err)
+	}
+}
+
+func TestWaitForBuildByNumberOrUploadFailureReturnsMalformedUploadRelationships(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	client := newBuildWaitTestClient(t, func(req *http.Request) (*http.Response, error) {
+		if req.Method != http.MethodGet {
+			return nil, fmt.Errorf("expected GET, got %s", req.Method)
+		}
+
+		switch req.URL.Path {
+		case "/v1/buildUploads/upload-current":
+			return buildWaitJSONResponse(`{
+				"data": {
+					"type": "buildUploads",
+					"id": "upload-current",
+					"attributes": {
+						"cfBundleShortVersionString": "1.2.3",
+						"cfBundleVersion": "42",
+						"platform": "IOS",
+						"state": {
+							"state": "PROCESSING"
+						}
+					},
+					"relationships": {
+						"build": "bad-shape"
+					}
+				}
+			}`)
+		case "/v1/preReleaseVersions":
+			cancel()
+			return buildWaitJSONResponse(`{"data":[]}`)
+		default:
+			return nil, fmt.Errorf("unexpected path: %s", req.URL.Path)
+		}
+	})
+
+	_, err := WaitForBuildByNumberOrUploadFailure(ctx, client, "app-1", "upload-current", "1.2.3", "42", "IOS", time.Millisecond)
+	if err == nil {
+		t.Fatal("expected malformed relationship error, got nil")
+	}
+	if !strings.Contains(err.Error(), `parse build upload "upload-current" relationships`) {
+		t.Fatalf("expected malformed relationship error, got %v", err)
+	}
+}
+
 func TestBuildStatusPrivateKeyPathFallsBackToStoredPEMWhenPathMissing(t *testing.T) {
 	tempDir := t.TempDir()
 	keyPath := filepath.Join(tempDir, "AuthKey.p8")

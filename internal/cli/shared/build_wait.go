@@ -3,7 +3,6 @@ package shared
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -45,20 +44,24 @@ func WaitForBuildByNumberOrUploadFailure(ctx context.Context, client *asc.Client
 	return asc.PollUntil(ctx, pollInterval, func(ctx context.Context) (*asc.BuildResponse, bool, error) {
 		if uploadID != "" {
 			upload, err := client.GetBuildUpload(ctx, uploadID)
-			if err != nil && shouldReturnBuildWaitError(err) {
-				return nil, false, err
-			}
-			if err == nil {
+			if err != nil {
+				if !shouldIgnoreBuildWaitLookupError(err) {
+					return nil, false, err
+				}
+			} else {
 				if err := buildUploadFailureError(upload); err != nil {
 					return nil, false, enrichBuildUploadFailure(ctx, appID, upload, err)
 				}
 				buildID, err := buildIDForUpload(upload)
-				if err == nil && buildID != "" {
-					// Keep upload-status probing best-effort so transient ASC
-					// lookup issues do not regress the older build-list polling path.
+				if err != nil {
+					return nil, false, err
+				}
+				if buildID != "" {
+					// Keep upload-status probing best-effort only for linked-build
+					// lookups that legitimately have not materialized yet.
 					build, err := client.GetBuild(ctx, buildID)
 					if err != nil {
-						if shouldReturnBuildWaitError(err) {
+						if !shouldIgnoreBuildWaitLookupError(err) {
 							return nil, false, err
 						}
 					} else {
@@ -264,8 +267,8 @@ func joinDiagnosticDetails(values []string) string {
 	return strings.Join(parts, "; ")
 }
 
-func shouldReturnBuildWaitError(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+func shouldIgnoreBuildWaitLookupError(err error) bool {
+	return asc.IsNotFound(err)
 }
 
 // SetBuildUploadFailureDiagnosticsForTesting overrides build failure enrichment.
