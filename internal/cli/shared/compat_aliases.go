@@ -2,6 +2,7 @@ package shared
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -46,6 +47,10 @@ func DeprecatedAliasLeafCommand(cmd *ffcli.Command, name, shortUsage, newCommand
 	}
 
 	clone := *cmd
+	clone.FlagSet = cloneFlagSet(cmd.FlagSet)
+	if clone.FlagSet != nil {
+		renameFlagSetLastToken(clone.FlagSet, strings.TrimSpace(cmd.Name), name)
+	}
 	clone.Name = name
 	clone.ShortUsage = shortUsage
 	clone.ShortHelp = fmt.Sprintf("DEPRECATED: use `%s`.", newCommand)
@@ -67,6 +72,42 @@ func DeprecatedAliasLeafCommand(cmd *ffcli.Command, name, shortUsage, newCommand
 	}
 
 	return &clone
+}
+
+func cloneFlagSet(fs *flag.FlagSet) *flag.FlagSet {
+	if fs == nil {
+		return nil
+	}
+
+	clone := flag.NewFlagSet(fs.Name(), fs.ErrorHandling())
+	if output := fs.Output(); output != nil {
+		clone.SetOutput(output)
+	}
+	clone.Usage = fs.Usage
+
+	fs.VisitAll(func(f *flag.Flag) {
+		clone.Var(f.Value, f.Name, f.Usage)
+		if copied := clone.Lookup(f.Name); copied != nil {
+			copied.DefValue = f.DefValue
+			if flagHiddenFromHelp(f) {
+				HideFlagFromHelp(copied)
+			}
+		}
+	})
+
+	return clone
+}
+
+func flagHiddenFromHelp(f *flag.Flag) bool {
+	if f == nil {
+		return false
+	}
+
+	hiddenCommandHelpRegistry.RLock()
+	defer hiddenCommandHelpRegistry.RUnlock()
+
+	_, hidden := hiddenCommandHelpRegistry.flags[f]
+	return hidden
 }
 
 func rewriteDeprecatedAliasLeafWarnings(cmd *ffcli.Command, rewrite func(string) string) {

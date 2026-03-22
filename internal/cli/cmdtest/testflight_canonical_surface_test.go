@@ -368,6 +368,50 @@ func TestTestFlightAppsShowsRemovedGuidance(t *testing.T) {
 	}
 }
 
+func TestTestFlightAppsSingleAppGuidanceUsesView(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "legacy get path",
+			args: []string{"testflight", "apps", "get"},
+		},
+		{
+			name: "canonical view path",
+			args: []string{"testflight", "apps", "view"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := RootCommand("1.2.3")
+			root.FlagSet.SetOutput(io.Discard)
+
+			var runErr error
+			stdout, stderr := captureOutput(t, func() {
+				if err := root.Parse(tt.args); err != nil {
+					t.Fatalf("parse error: %v", err)
+				}
+				runErr = root.Run(context.Background())
+			})
+
+			if !errors.Is(runErr, flag.ErrHelp) {
+				t.Fatalf("expected ErrHelp, got %v", runErr)
+			}
+			if stdout != "" {
+				t.Fatalf("expected empty stdout, got %q", stdout)
+			}
+			if !strings.Contains(stderr, "Error: `asc testflight apps` was removed. Use `asc apps view --id APP_ID` instead.") {
+				t.Fatalf("expected removed single-app guidance to use view, got %q", stderr)
+			}
+			if strings.Contains(stderr, "asc apps get --id APP_ID") {
+				t.Fatalf("expected removed single-app guidance to drop get, got %q", stderr)
+			}
+		})
+	}
+}
+
 func TestTestFlightGroupsHelpHidesRawRelationshipSurface(t *testing.T) {
 	root := RootCommand("1.2.3")
 

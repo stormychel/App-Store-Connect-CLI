@@ -177,6 +177,8 @@ func renameFlagSetLastToken(fs *flag.FlagSet, oldName, newName string) {
 		return
 	}
 
+	output := fs.Output()
+	usage := fs.Usage
 	name := strings.TrimSpace(fs.Name())
 	switch {
 	case name == "":
@@ -190,6 +192,12 @@ func renameFlagSetLastToken(fs *flag.FlagSet, oldName, newName string) {
 	}
 
 	fs.Init(name, fs.ErrorHandling())
+	if output != nil {
+		fs.SetOutput(output)
+	}
+	if usage != nil {
+		fs.Usage = usage
+	}
 }
 
 func rewriteLeadingVerbDescriptions(cmd *ffcli.Command, oldName, newName string) {
