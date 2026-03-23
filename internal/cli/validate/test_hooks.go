@@ -71,6 +71,23 @@ func SetFetchAvailableTerritoriesFunc(fn func(context.Context, *asc.Client, stri
 	}
 }
 
+// SetFetchAppBuildCountFunc replaces the app build-count fetcher for tests.
+// It returns a restore function to reset the previous handler.
+func SetFetchAppBuildCountFunc(fn func(context.Context, *asc.Client, string) (int, bool, string, error)) func() {
+	previous := fetchAppBuildCountFn
+	if fn == nil {
+		fetchAppBuildCountFn = fetchAppBuildCount
+	} else {
+		fetchAppBuildCountFn = func(ctx context.Context, client *asc.Client, appID string) (int, metadataCheckStatus, error) {
+			count, verified, skipReason, err := fn(ctx, client, appID)
+			return count, metadataCheckStatus{Verified: verified, SkipReason: skipReason}, err
+		}
+	}
+	return func() {
+		fetchAppBuildCountFn = previous
+	}
+}
+
 // SetFetchScreenshotSetsFunc replaces the screenshot-set fetcher for tests.
 // It returns a restore function to reset the previous handler.
 func SetFetchScreenshotSetsFunc(fn func(context.Context, *asc.Client, []asc.Resource[asc.AppStoreVersionLocalizationAttributes]) ([]validation.ScreenshotSet, error)) func() {

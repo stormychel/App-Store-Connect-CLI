@@ -83,13 +83,20 @@ type SubscriptionsReport struct {
 
 // ValidateSubscriptions validates subscription review readiness and returns a report.
 func ValidateSubscriptions(input SubscriptionsInput, strict bool) SubscriptionsReport {
+	availableTerritories := input.AvailableTerritories
+	appAvailableTerritories := input.AppAvailableTerritories
+	if input.PricingCoverageSkipReason != "" {
+		availableTerritories = 0
+		appAvailableTerritories = nil
+	}
+
 	checks := make([]CheckResult, 0)
 	checks = append(checks, subscriptionImageChecks(input.Subscriptions)...)
 	checks = append(checks, subscriptionReviewReadinessChecks(input.Subscriptions)...)
 	checks = append(checks, subscriptionPricingVerificationChecks(input.Subscriptions)...)
 	checks = append(checks, subscriptionPricingCoverageSkipChecks(input.AppID, input.PricingCoverageSkipReason)...)
 	checks = append(checks, subscriptionMetadataDiagnostics(input.Subscriptions)...)
-	checks = append(checks, subscriptionPricingCoverageChecks(input.Subscriptions, input.AvailableTerritories, input.AppAvailableTerritories)...)
+	checks = append(checks, subscriptionPricingCoverageChecks(input.Subscriptions, availableTerritories, appAvailableTerritories)...)
 	diagnostics := buildSubscriptionDiagnostics(input)
 	summary := summarize(checks, strict)
 

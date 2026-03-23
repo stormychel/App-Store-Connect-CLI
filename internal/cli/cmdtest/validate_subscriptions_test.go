@@ -575,6 +575,131 @@ func TestValidateSubscriptionsSkipsPricingCoverageWhenPaginatedAvailabilityRateL
 	}
 }
 
+func TestValidateSubscriptionsSkipsPricingCoverageWhenPaginatedAvailabilityTimeoutHasPartialCount(t *testing.T) {
+	fixture := validValidateSubscriptionsFixture()
+	fixture.availabilityV2 = `{"data":{"type":"appAvailabilities","id":"avail-1","attributes":{"availableInNewTerritories":true}}}`
+	fixture.territories = `{"data":[
+		{"type":"territoryAvailabilities","id":"ta-1","attributes":{"available":true}},
+		{"type":"territoryAvailabilities","id":"ta-2","attributes":{"available":true}}
+	],"links":{"next":"https://api.appstoreconnect.apple.com/v2/appAvailabilities/avail-1/territoryAvailabilities?cursor=page-2"}}`
+	fixture.territoryStatusByQuery = map[string]int{
+		"cursor=page-2": http.StatusTooManyRequests,
+	}
+	fixture.expectedPriceInclude = "territory"
+	fixture.pricesBySubscription = map[string]string{
+		"sub-1": `{"data":[{"type":"subscriptionPrices","id":"price-1","attributes":{"startDate":"2026-01-01"},"relationships":{"territory":{"data":{"type":"territories","id":"USA"}}}}]}`,
+	}
+
+	client := newValidateSubscriptionsClient(t, fixture)
+	restore := validate.SetClientFactory(func() (*asc.Client, error) {
+		return client, nil
+	})
+	defer restore()
+
+	root := RootCommand("1.2.3")
+	stdout, stderr := captureOutput(t, func() {
+		if err := root.Parse([]string{"validate", "subscriptions", "--app", "app-1"}); err != nil {
+			t.Fatalf("parse error: %v", err)
+		}
+		if err := root.Run(context.Background()); err != nil {
+			t.Fatalf("expected paginated availability timeout/rate-limit downgrade to stay non-blocking, got %v", err)
+		}
+	})
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+
+	var report validation.SubscriptionsReport
+	if err := json.Unmarshal([]byte(stdout), &report); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	if !hasCheckWithID(report.Checks, "subscriptions.pricing_coverage.unverified") {
+		t.Fatalf("expected pricing coverage skip info check, got %+v", report.Checks)
+	}
+	if hasCheckWithID(report.Checks, "subscriptions.pricing.partial_territory_coverage") {
+		t.Fatalf("did not expect pricing coverage warning when only a partial availability count was fetched, got %+v", report.Checks)
+	}
+}
+
+func TestValidateSubscriptionsRefreshesContextBeforeBuildProbeAfterAvailabilityTimeout(t *testing.T) {
+	fixture := validValidateSubscriptionsFixture()
+
+	client := newValidateSubscriptionsClient(t, fixture)
+	restoreClient := validate.SetClientFactory(func() (*asc.Client, error) {
+		return client, nil
+	})
+	defer restoreClient()
+
+	t.Setenv("ASC_TIMEOUT", "40ms")
+
+	restoreAvailability := validate.SetFetchAvailableTerritoriesFunc(func(ctx context.Context, _ *asc.Client, appID string) (string, int, error) {
+		if appID != "app-1" {
+			t.Fatalf("expected app-1, got %q", appID)
+		}
+		<-ctx.Done()
+		return "", 0, ctx.Err()
+	})
+	defer restoreAvailability()
+
+	restoreBuilds := validate.SetFetchAppBuildCountFunc(func(ctx context.Context, _ *asc.Client, appID string) (int, bool, string, error) {
+		if appID != "app-1" {
+			t.Fatalf("expected app-1, got %q", appID)
+		}
+		if err := ctx.Err(); err != nil {
+			return 0, false, "stale build ctx", nil
+		}
+		return 1, true, "", nil
+	})
+	defer restoreBuilds()
+
+	restoreSubscriptions := validate.SetFetchSubscriptionsFunc(func(context.Context, *asc.Client, string) ([]validation.Subscription, error) {
+		return []validation.Subscription{{
+			ID:                      "sub-1",
+			Name:                    "Monthly",
+			ProductID:               "com.example.monthly",
+			State:                   "MISSING_METADATA",
+			GroupID:                 "group-1",
+			GroupName:               "Premium",
+			GroupLocalizations:      []validation.SubscriptionGroupLocalizationInfo{{Locale: "en-US", Name: "Premium"}},
+			Localizations:           []validation.SubscriptionLocalizationInfo{{Locale: "en-US", Name: "Monthly", Description: "Unlimited access"}},
+			ReviewScreenshotID:      "shot-1",
+			AvailabilityID:          "avail-1",
+			AvailabilityTerritories: []string{"USA"},
+			PriceCount:              1,
+			PriceTerritories:        []string{"USA"},
+		}}, nil
+	})
+	defer restoreSubscriptions()
+
+	root := RootCommand("1.2.3")
+	stdout, stderr := captureOutput(t, func() {
+		if err := root.Parse([]string{"validate", "subscriptions", "--app", "app-1"}); err != nil {
+			t.Fatalf("parse error: %v", err)
+		}
+		if err := root.Run(context.Background()); err != nil {
+			t.Fatalf("expected availability timeout downgrade to keep validate subscriptions running, got %v", err)
+		}
+	})
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+
+	var report validation.SubscriptionsReport
+	if err := json.Unmarshal([]byte(stdout), &report); err != nil {
+		t.Fatalf("failed to parse JSON output: %v", err)
+	}
+	if len(report.Diagnostics) != 1 {
+		t.Fatalf("expected one diagnostics entry, got %+v", report.Diagnostics)
+	}
+	buildRow, ok := findSubscriptionDiagnosticRow(t, report.Diagnostics[0].Rows, "app_has_build")
+	if !ok {
+		t.Fatalf("expected app_has_build diagnostic row, got %+v", report.Diagnostics[0].Rows)
+	}
+	if buildRow.Status != validation.DiagnosticStatusYes {
+		t.Fatalf("expected refreshed context to let build probe succeed, got %+v", buildRow)
+	}
+}
+
 func TestValidateSubscriptionsSurfacesSkippedPricingVerificationForApprovedSubscriptions(t *testing.T) {
 	fixture := validValidateSubscriptionsFixture()
 	fixture.expectedPriceInclude = "territory"

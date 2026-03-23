@@ -9,6 +9,8 @@ import (
 	"github.com/rudrankriyam/App-Store-Connect-CLI/internal/cli/shared"
 )
 
+var fetchAppBuildCountFn = fetchAppBuildCount
+
 func fetchAppBuildCount(ctx context.Context, client *asc.Client, appID string) (int, metadataCheckStatus, error) {
 	reqCtx, cancel := shared.ContextWithTimeout(ctx)
 	resp, err := client.GetBuilds(reqCtx, appID)

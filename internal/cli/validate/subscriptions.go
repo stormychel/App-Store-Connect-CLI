@@ -2,6 +2,7 @@ package validate
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -70,27 +71,30 @@ func runValidateSubscriptions(ctx context.Context, opts validateSubscriptionsOpt
 	requestCtx, cancel := shared.ContextWithTimeout(ctx)
 	defer cancel()
 
+	refreshRequestCtx := func() {
+		cancel()
+		requestCtx, cancel = shared.ContextWithTimeout(ctx)
+	}
+
 	pricingCoverageSkipReason := ""
 	_, appAvailableTerritories, availableTerritories, err := fetchAvailableTerritoryDetailsFn(requestCtx, client, opts.AppID)
 	if err != nil {
 		if reason, ok := availabilityCheckSkipReason(err); ok {
 			pricingCoverageSkipReason = reason
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				refreshRequestCtx()
+			}
 		} else {
 			return fmt.Errorf("validate subscriptions: %w", err)
 		}
 	}
 
-	buildCount := 0
-	buildCheckSkipped := false
-	buildCheckSkipReason := ""
-	buildCount, buildStatus, err := fetchAppBuildCount(requestCtx, client, opts.AppID)
+	buildCount, buildStatus, err := fetchAppBuildCountFn(requestCtx, client, opts.AppID)
 	if err != nil {
 		return fmt.Errorf("validate subscriptions: %w", err)
 	}
-	if !buildStatus.Verified {
-		buildCheckSkipped = true
-		buildCheckSkipReason = buildStatus.SkipReason
-	}
+	buildCheckSkipped := !buildStatus.Verified
+	buildCheckSkipReason := buildStatus.SkipReason
 
 	subs, err := fetchSubscriptionsFn(ctx, client, opts.AppID)
 	if err != nil {
