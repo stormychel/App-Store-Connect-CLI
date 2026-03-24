@@ -530,6 +530,62 @@ Examples:
 	}
 }
 
+// AssetsPreviewsSetPosterFrameCommand returns the set-poster-frame subcommand.
+func AssetsPreviewsSetPosterFrameCommand() *ffcli.Command {
+	fs := flag.NewFlagSet("set-poster-frame", flag.ExitOnError)
+
+	id := fs.String("id", "", "Preview ID")
+	timeCode := fs.String("time-code", "", "Poster frame timecode (e.g., 00:00:05:00)")
+	output := shared.BindOutputFlags(fs)
+
+	return &ffcli.Command{
+		Name:       "set-poster-frame",
+		ShortUsage: `asc video-previews set-poster-frame --id "PREVIEW_ID" --time-code "00:00:05:00"`,
+		ShortHelp:  "Set the poster frame timecode for a preview.",
+		LongHelp: `Set the poster frame timecode for a preview.
+
+The poster frame is the still image shown before the video plays on the
+App Store product page. The timecode format is HH:MM:SS:FF (frames).
+
+Examples:
+  asc video-previews set-poster-frame --id "PREVIEW_ID" --time-code "00:00:05:00"
+  asc video-previews set-poster-frame --id "PREVIEW_ID" --time-code "00:00:01:00"`,
+		FlagSet:   fs,
+		UsageFunc: shared.DefaultUsageFunc,
+		Exec: func(ctx context.Context, args []string) error {
+			if len(args) > 0 {
+				return shared.UsageError("video-previews set-poster-frame does not accept positional arguments")
+			}
+
+			previewID := strings.TrimSpace(*id)
+			if previewID == "" {
+				fmt.Fprintln(os.Stderr, "Error: --id is required")
+				return flag.ErrHelp
+			}
+			tc := strings.TrimSpace(*timeCode)
+			if tc == "" {
+				fmt.Fprintln(os.Stderr, "Error: --time-code is required")
+				return flag.ErrHelp
+			}
+
+			client, err := shared.GetASCClient()
+			if err != nil {
+				return fmt.Errorf("video-previews set-poster-frame: %w", err)
+			}
+
+			requestCtx, cancel := shared.ContextWithTimeout(ctx)
+			defer cancel()
+
+			result, err := client.SetAppPreviewFrameTimeCode(requestCtx, previewID, tc)
+			if err != nil {
+				return fmt.Errorf("video-previews set-poster-frame: %w", err)
+			}
+
+			return shared.PrintOutput(result, *output.Output, *output.Pretty)
+		},
+	}
+}
+
 func normalizePreviewType(input string) (string, error) {
 	value := strings.ToUpper(strings.TrimSpace(input))
 	if value == "" {

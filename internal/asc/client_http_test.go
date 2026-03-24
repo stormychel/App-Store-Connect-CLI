@@ -4700,6 +4700,27 @@ func TestUpdateAppPreview(t *testing.T) {
 	}
 }
 
+func TestSetAppPreviewFrameTimeCode(t *testing.T) {
+	response := jsonResponse(http.StatusOK, `{"data":{"type":"appPreviews","id":"PREVIEW_123","attributes":{"previewFrameTimeCode":"00:00:01:00"}}}`)
+	client := newTestClient(t, func(req *http.Request) {
+		if req.Method != http.MethodPatch {
+			t.Fatalf("expected PATCH, got %s", req.Method)
+		}
+		if req.URL.Path != "/v1/appPreviews/PREVIEW_123" {
+			t.Fatalf("expected path /v1/appPreviews/PREVIEW_123, got %s", req.URL.Path)
+		}
+		assertAuthorized(t, req)
+	}, response)
+
+	result, err := client.SetAppPreviewFrameTimeCode(context.Background(), "PREVIEW_123", "00:00:01:00")
+	if err != nil {
+		t.Fatalf("SetAppPreviewFrameTimeCode() error: %v", err)
+	}
+	if result.Data.ID != "PREVIEW_123" {
+		t.Fatalf("expected preview ID PREVIEW_123, got %s", result.Data.ID)
+	}
+}
+
 func TestDeleteAppPreview(t *testing.T) {
 	response := jsonResponse(http.StatusNoContent, "")
 	client := newTestClient(t, func(req *http.Request) {
