@@ -131,3 +131,49 @@ func TestGetAnalyticsCohortsRequestsStringAdamID(t *testing.T) {
 		t.Fatalf("expected 2 cohort rows, got %d", got)
 	}
 }
+
+func TestGetAnalyticsMeasuresUsesClientBaseURL(t *testing.T) {
+	client := &Client{
+		httpClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				if req.URL.Host != "analytics.example.test" {
+					t.Fatalf("unexpected host: %s", req.URL.Host)
+				}
+				if req.URL.Path != "/custom-base/data/app/detail/measures" {
+					t.Fatalf("unexpected path: %s", req.URL.Path)
+				}
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(`{"size":0,"results":[]}`)),
+					Request:    req,
+				}, nil
+			}),
+		},
+		baseURL:            "https://analytics.example.test/custom-base",
+		minRequestInterval: 0,
+	}
+
+	if _, err := client.GetAnalyticsMeasures(context.Background(), AnalyticsMeasuresRequest{
+		AppID:     "app-1",
+		StartDate: "2025-12-24",
+		EndDate:   "2026-03-23",
+		Measures:  []string{"units"},
+		Frequency: "day",
+	}); err != nil {
+		t.Fatalf("GetAnalyticsMeasures() error = %v", err)
+	}
+}
+
+func TestMonthlyRecurringRevenueRangeExcludesPartialStartMonth(t *testing.T) {
+	start, end, ok, err := monthlyRecurringRevenueRange("2025-12-24", "2026-03-23")
+	if err != nil {
+		t.Fatalf("monthlyRecurringRevenueRange() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("expected a complete-month range")
+	}
+	if start != "2026-01-01" || end != "2026-02-28" {
+		t.Fatalf("unexpected monthly range: %s to %s", start, end)
+	}
+}

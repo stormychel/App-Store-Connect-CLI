@@ -264,7 +264,7 @@ type AnalyticsBenchmarksSummary struct {
 }
 
 func (c *Client) doAnalyticsGetRequest(ctx context.Context, path, referer string) ([]byte, error) {
-	return c.doRequestBase(ctx, analyticsAPIBaseURL, http.MethodGet, path, nil, analyticsHeaders(referer))
+	return c.doRequestBase(ctx, c.analyticsBaseURL(), http.MethodGet, path, nil, analyticsHeaders(referer))
 }
 
 func (c *Client) doAnalyticsV2Request(ctx context.Context, path string, body any, referer string) ([]byte, error) {
@@ -334,7 +334,7 @@ func (c *Client) GetAnalyticsSourcesList(ctx context.Context, req AnalyticsSourc
 	if err != nil {
 		return nil, err
 	}
-	frequency, err := normalizeAnalyticsFrequency(req.Frequency)
+	frequency, err := NormalizeAnalyticsFrequency(req.Frequency)
 	if err != nil {
 		return nil, err
 	}
@@ -375,7 +375,7 @@ func (c *Client) GetAnalyticsV2DimensionValues(ctx context.Context, req Analytic
 	if err != nil {
 		return nil, err
 	}
-	frequency, err := normalizeAnalyticsFrequency(req.Frequency)
+	frequency, err := NormalizeAnalyticsFrequency(req.Frequency)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +415,7 @@ func (c *Client) GetAnalyticsV2TimeSeries(ctx context.Context, req AnalyticsV2Ti
 	if err != nil {
 		return nil, err
 	}
-	frequency, err := normalizeAnalyticsFrequency(req.Frequency)
+	frequency, err := NormalizeAnalyticsFrequency(req.Frequency)
 	if err != nil {
 		return nil, err
 	}

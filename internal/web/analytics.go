@@ -268,11 +268,21 @@ func analyticsAppReferer(appID string) string {
 	return appStoreBaseURL + "/apps/" + url.PathEscape(strings.TrimSpace(appID)) + "/analytics"
 }
 
-func (c *Client) doAnalyticsRequest(ctx context.Context, path string, body any, referer string) ([]byte, error) {
-	return c.doRequestBase(ctx, analyticsAPIBaseURL, http.MethodPost, path, body, analyticsHeaders(referer))
+func (c *Client) analyticsBaseURL() string {
+	baseURL := strings.TrimSpace(c.baseURL)
+	if baseURL == "" {
+		return analyticsAPIBaseURL
+	}
+	return baseURL
 }
 
-func normalizeAnalyticsFrequency(raw string) (string, error) {
+func (c *Client) doAnalyticsRequest(ctx context.Context, path string, body any, referer string) ([]byte, error) {
+	return c.doRequestBase(ctx, c.analyticsBaseURL(), http.MethodPost, path, body, analyticsHeaders(referer))
+}
+
+// NormalizeAnalyticsFrequency validates analytics frequency values shared by the
+// CLI layer and the private web client.
+func NormalizeAnalyticsFrequency(raw string) (string, error) {
 	value := strings.ToLower(strings.TrimSpace(raw))
 	if value == "" {
 		value = "day"
@@ -341,6 +351,9 @@ func monthlyRecurringRevenueRange(startDate, endDate string) (string, string, bo
 		return "", "", false, fmt.Errorf("end date must be on or after start date")
 	}
 	startMonth := time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, time.UTC)
+	if start.Day() != 1 {
+		startMonth = startMonth.AddDate(0, 1, 0)
+	}
 	endMonth := time.Date(end.Year(), end.Month(), 1, 0, 0, 0, 0, time.UTC)
 	lastDayOfMonth := endMonth.AddDate(0, 1, -1)
 	if end.Day() != lastDayOfMonth.Day() {
@@ -390,7 +403,7 @@ func (c *Client) GetAnalyticsMeasures(ctx context.Context, req AnalyticsMeasures
 	if err != nil {
 		return nil, err
 	}
-	frequency, err := normalizeAnalyticsFrequency(req.Frequency)
+	frequency, err := NormalizeAnalyticsFrequency(req.Frequency)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +443,7 @@ func (c *Client) GetAnalyticsTimeseries(ctx context.Context, req AnalyticsTimese
 	if err != nil {
 		return nil, err
 	}
-	frequency, err := normalizeAnalyticsFrequency(req.Frequency)
+	frequency, err := NormalizeAnalyticsFrequency(req.Frequency)
 	if err != nil {
 		return nil, err
 	}
@@ -476,7 +489,7 @@ func (c *Client) GetAnalyticsDimensions(ctx context.Context, req AnalyticsDimens
 	if err != nil {
 		return nil, err
 	}
-	frequency, err := normalizeAnalyticsFrequency(req.Frequency)
+	frequency, err := NormalizeAnalyticsFrequency(req.Frequency)
 	if err != nil {
 		return nil, err
 	}
@@ -525,7 +538,7 @@ func (c *Client) GetAnalyticsDimensionValues(ctx context.Context, req AnalyticsD
 	if len(req.Dimensions) == 0 {
 		return nil, fmt.Errorf("dimensions are required")
 	}
-	frequency, err := normalizeAnalyticsFrequency(req.Frequency)
+	frequency, err := NormalizeAnalyticsFrequency(req.Frequency)
 	if err != nil {
 		return nil, err
 	}
@@ -562,7 +575,7 @@ func (c *Client) GetAnalyticsRetention(ctx context.Context, req AnalyticsRetenti
 	if err != nil {
 		return nil, err
 	}
-	frequency, err := normalizeAnalyticsFrequency(req.Frequency)
+	frequency, err := NormalizeAnalyticsFrequency(req.Frequency)
 	if err != nil {
 		return nil, err
 	}
@@ -605,7 +618,7 @@ func (c *Client) GetAnalyticsCohorts(ctx context.Context, req AnalyticsCohortsRe
 	if err != nil {
 		return nil, err
 	}
-	frequency, err := normalizeAnalyticsFrequency(req.Frequency)
+	frequency, err := NormalizeAnalyticsFrequency(req.Frequency)
 	if err != nil {
 		return nil, err
 	}

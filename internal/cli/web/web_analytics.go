@@ -463,16 +463,11 @@ func resolveAnalyticsQueryFlags(appID, startDate, endDate string) (string, strin
 }
 
 func resolveAnalyticsFrequency(value string) (string, error) {
-	value = strings.ToLower(strings.TrimSpace(value))
-	if value == "" {
-		value = "day"
+	frequency, err := webcore.NormalizeAnalyticsFrequency(value)
+	if err != nil {
+		return "", shared.UsageError("--" + err.Error())
 	}
-	switch value {
-	case "day", "week", "month":
-		return value, nil
-	default:
-		return "", shared.UsageError("--frequency must be one of day, week, month")
-	}
+	return frequency, nil
 }
 
 func analyticsMeasureLabel(measure string) string {
