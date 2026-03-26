@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/rudrankriyam/App-Store-Connect-CLI/internal/asc"
 	"github.com/rudrankriyam/App-Store-Connect-CLI/internal/cli/shared"
@@ -26,6 +27,7 @@ type buildNumberSelectionOptions struct {
 	Version               string
 	BuildNumber           string
 	Platform              string
+	Since                 *time.Time
 	ProcessingStateValues []string
 }
 
@@ -160,7 +162,7 @@ func resolveBuildByNumberSelection(
 	if len(opts.ProcessingStateValues) > 0 {
 		buildOpts = append(buildOpts, asc.WithBuildsProcessingStates(opts.ProcessingStateValues))
 	}
-	if version != "" || platform != "" {
+	if version != "" {
 		preReleaseVersionIDs, err := findPreReleaseVersionIDs(ctx, client, resolvedAppID, version, platform)
 		if err != nil {
 			return nil, err
@@ -172,6 +174,22 @@ func resolveBuildByNumberSelection(
 			return nil, noBuildFoundForBuildNumber(resolvedAppID, buildNumber, version, platform)
 		}
 		buildOpts = append(buildOpts, asc.WithBuildsPreReleaseVersions(preReleaseVersionIDs))
+	} else if platform != "" {
+		buildOpts = append(buildOpts, asc.WithBuildsPreReleaseVersionPlatforms([]string{platform}))
+	}
+
+	if opts.Since != nil {
+		return resolveBuildByNumberSelectionSince(
+			ctx,
+			client,
+			resolvedAppID,
+			buildNumber,
+			version,
+			platform,
+			buildOpts,
+			opts.Since,
+			allowEmpty,
+		)
 	}
 
 	buildsResp, err := client.GetBuilds(ctx, resolvedAppID, buildOpts...)
@@ -190,6 +208,61 @@ func resolveBuildByNumberSelection(
 	}
 
 	return &asc.BuildResponse{Data: buildsResp.Data[0], Links: buildsResp.Links}, nil
+}
+
+func resolveBuildByNumberSelectionSince(
+	ctx context.Context,
+	client *asc.Client,
+	appID, buildNumber, version, platform string,
+	buildOpts []asc.BuildsOption,
+	since *time.Time,
+	allowEmpty bool,
+) (*asc.BuildResponse, error) {
+	threshold := since.UTC()
+	var selected *asc.Resource[asc.BuildAttributes]
+	pageOpts := append([]asc.BuildsOption{}, buildOpts...)
+
+	for {
+		buildsResp, err := client.GetBuilds(ctx, appID, pageOpts...)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, build := range buildsResp.Data {
+			uploadedAt, err := parseBuildUploadedTimestamp(build.Attributes.UploadedDate)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse uploadedDate for build %s: %w", build.ID, err)
+			}
+			if uploadedAt.Before(threshold) {
+				if selected == nil {
+					if allowEmpty {
+						return nil, nil
+					}
+					return nil, noBuildFoundForBuildNumber(appID, buildNumber, version, platform)
+				}
+				return &asc.BuildResponse{Data: *selected}, nil
+			}
+			if selected != nil {
+				return nil, ambiguousBuildNumberSelection(appID, buildNumber, version, platform)
+			}
+
+			selectedBuild := build
+			selected = &selectedBuild
+		}
+
+		nextURL := strings.TrimSpace(buildsResp.Links.Next)
+		if nextURL == "" {
+			if selected == nil {
+				if allowEmpty {
+					return nil, nil
+				}
+				return nil, noBuildFoundForBuildNumber(appID, buildNumber, version, platform)
+			}
+			return &asc.BuildResponse{Data: *selected}, nil
+		}
+
+		pageOpts = []asc.BuildsOption{asc.WithBuildsNextURL(nextURL)}
+	}
 }
 
 func noBuildFoundForBuildNumber(appID, buildNumber, version, platform string) error {

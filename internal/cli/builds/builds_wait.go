@@ -118,7 +118,7 @@ Examples:
 
 			var sinceTime *time.Time
 			if sinceValue != "" {
-				parsedSince, err := parseBuildsWaitTimestamp(sinceValue)
+				parsedSince, err := parseBuildUploadedTimestamp(sinceValue)
 				if err != nil {
 					return shared.UsageError("--since must be an RFC3339 timestamp (e.g., 2026-03-02T18:00:00Z)")
 				}
@@ -267,6 +267,7 @@ func resolveBuildForAppWait(
 		Version:               selector.Version,
 		BuildNumber:           selector.BuildNumber,
 		Platform:              selector.Platform,
+		Since:                 selector.Since,
 		ProcessingStateValues: buildsWaitProcessingStates(),
 	}, true)
 	if err != nil {
@@ -281,7 +282,7 @@ func applyWaitSinceConstraint(buildResp *asc.BuildResponse, since *time.Time) (*
 		return buildResp, nil
 	}
 
-	uploadedAt, err := parseBuildsWaitTimestamp(buildResp.Data.Attributes.UploadedDate)
+	uploadedAt, err := parseBuildUploadedTimestamp(buildResp.Data.Attributes.UploadedDate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse uploadedDate for build %s: %w", buildResp.Data.ID, err)
 	}
@@ -292,7 +293,7 @@ func applyWaitSinceConstraint(buildResp *asc.BuildResponse, since *time.Time) (*
 	return buildResp, nil
 }
 
-func parseBuildsWaitTimestamp(raw string) (time.Time, error) {
+func parseBuildUploadedTimestamp(raw string) (time.Time, error) {
 	value := strings.TrimSpace(raw)
 	if value == "" {
 		return time.Time{}, fmt.Errorf("timestamp is required")

@@ -100,25 +100,20 @@ func TestBuildsInfoByBuildNumberExplicitPlatformNarrowsResults(t *testing.T) {
 		requestCount++
 		switch requestCount {
 		case 1:
-			if req.URL.Path != "/v1/preReleaseVersions" {
-				t.Fatalf("expected pre-release versions lookup, got %s", req.URL.Path)
-			}
-			if got := req.URL.Query().Get("filter[platform]"); got != "TV_OS" {
-				t.Fatalf("expected platform filter TV_OS, got %q", got)
-			}
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(`{"data":[{"type":"preReleaseVersions","id":"prv-tv","attributes":{"version":"1.2.3","platform":"TV_OS"}}]}`)),
-				Header:     http.Header{"Content-Type": []string{"application/json"}},
-			}, nil
-		case 2:
 			if req.URL.Path != "/v1/builds" {
 				t.Fatalf("expected builds lookup, got %s", req.URL.Path)
 			}
-			if got := req.URL.Query().Get("filter[preReleaseVersion]"); got != "prv-tv" {
-				t.Fatalf("expected preReleaseVersion filter prv-tv, got %q", got)
+			query := req.URL.Query()
+			if got := query.Get("filter[app]"); got != "123456789" {
+				t.Fatalf("expected app filter 123456789, got %q", got)
 			}
-			if got := req.URL.Query().Get("limit"); got != "200" {
+			if got := query.Get("filter[preReleaseVersion.platform]"); got != "TV_OS" {
+				t.Fatalf("expected platform filter TV_OS, got %q", got)
+			}
+			if got := query.Get("filter[version]"); got != "42" {
+				t.Fatalf("expected build number filter 42, got %q", got)
+			}
+			if got := query.Get("limit"); got != "200" {
 				t.Fatalf("expected limit=200, got %q", got)
 			}
 			body := `{"data":[{"type":"builds","id":"build-tv","attributes":{"version":"42","processingState":"VALID"}}]}`
@@ -127,7 +122,7 @@ func TestBuildsInfoByBuildNumberExplicitPlatformNarrowsResults(t *testing.T) {
 				Body:       io.NopCloser(strings.NewReader(body)),
 				Header:     http.Header{"Content-Type": []string{"application/json"}},
 			}, nil
-		case 3:
+		case 2:
 			if req.URL.Path != "/v1/builds/build-tv/preReleaseVersion" {
 				t.Fatalf("expected build pre-release version path, got %s", req.URL.Path)
 			}
