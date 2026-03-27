@@ -11,13 +11,13 @@ This file is the source of truth for the Q2 2026 effort to rewrite the execution
 
 The problem is not that the repo is "bad" across the board. The problem is that a few cross-cutting layers have become overloaded while command surface area kept growing quickly:
 
-- `79` root subcommands in [internal/cli/registry/registry.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/cli/registry/registry.go)
+- `79` root subcommands in [internal/cli/registry/registry.go](../../internal/cli/registry/registry.go)
 - `1,383` tracked Go files
 - `440,790` total Go lines
 - `230,251` non-test Go lines
 - `210,539` test Go lines
-- [internal/cli/shared/shared.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/cli/shared/shared.go) at `1,482` lines
-- [internal/asc/client_options.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/asc/client_options.go) at `3,590` lines
+- [internal/cli/shared/shared.go](../../internal/cli/shared/shared.go) at `1,482` lines
+- [internal/asc/client_options.go](../../internal/asc/client_options.go) at `3,590` lines
 - high-churn workflow families in `status`, `release`, `submit`, `builds`, `testflight`, `metadata`, and `apps`
 
 The architectural goal for Q2 is not "make every file pretty." The goal is to replace the foundation that future work keeps re-accumulating on: `shared`, `root`, registry wiring, and giant client option files.
@@ -105,7 +105,7 @@ Proposed shape:
 - `LoggingConfig`
 - `IO` or terminal/output capabilities
 
-The runtime should be constructed once near [cmd/root.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/cmd/root.go) and passed into command constructors.
+The runtime should be constructed once near [cmd/root.go](../../cmd/root.go) and passed into command constructors.
 
 Q2 rewrite posture:
 
@@ -144,10 +144,10 @@ func StatusCommand(rt *runtime.Runtime, runF func(context.Context, *StatusOption
 
 ### Cross-cutting layers
 
-- [cmd/root.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/cmd/root.go)
-- [internal/cli/shared/shared.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/cli/shared/shared.go)
-- [internal/cli/shared/compat_aliases.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/cli/shared/compat_aliases.go)
-- [internal/cli/registry/registry.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/cli/registry/registry.go)
+- [cmd/root.go](../../cmd/root.go)
+- [internal/cli/shared/shared.go](../../internal/cli/shared/shared.go)
+- [internal/cli/shared/compat_aliases.go](../../internal/cli/shared/compat_aliases.go)
+- [internal/cli/registry/registry.go](../../internal/cli/registry/registry.go)
 
 ### CLI packages with the most non-test weight
 
@@ -164,10 +164,10 @@ func StatusCommand(rt *runtime.Runtime, runF func(context.Context, *StatusOption
 
 ### `internal/asc` hotspots
 
-- [internal/asc/client_options.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/asc/client_options.go)
-- [internal/asc/client_queries.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/asc/client_queries.go)
-- [internal/asc/client.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/asc/client.go)
-- [internal/asc/client_http.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/asc/client_http.go)
+- [internal/asc/client_options.go](../../internal/asc/client_options.go)
+- [internal/asc/client_queries.go](../../internal/asc/client_queries.go)
+- [internal/asc/client.go](../../internal/asc/client.go)
+- [internal/asc/client_http.go](../../internal/asc/client_http.go)
 - the resource-specific `client_*` files with mixed query, request, and transport concerns
 
 ## Workstreams
@@ -183,8 +183,8 @@ Owner outcome:
 
 Primary targets:
 
-- [cmd/root.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/cmd/root.go)
-- [internal/cli/shared/shared.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/cli/shared/shared.go)
+- [cmd/root.go](../../cmd/root.go)
+- [internal/cli/shared/shared.go](../../internal/cli/shared/shared.go)
 
 ### Workstream B: Workflow-Critical Vertical Slices
 
@@ -214,8 +214,8 @@ Owner outcome:
 
 Primary targets:
 
-- [internal/asc/client_options.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/asc/client_options.go)
-- [internal/asc/client_queries.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/asc/client_queries.go)
+- [internal/asc/client_options.go](../../internal/asc/client_options.go)
+- [internal/asc/client_queries.go](../../internal/asc/client_queries.go)
 - resource-specific option/query helpers
 
 ### Workstream D: Taxonomy and Compatibility Discipline
@@ -228,8 +228,8 @@ Owner outcome:
 
 Primary targets:
 
-- [internal/cli/registry/registry.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/cli/registry/registry.go)
-- [internal/cli/shared/compat_aliases.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/cli/shared/compat_aliases.go)
+- [internal/cli/registry/registry.go](../../internal/cli/registry/registry.go)
+- [internal/cli/shared/compat_aliases.go](../../internal/cli/shared/compat_aliases.go)
 - command-specific deprecated wrappers
 
 ### Workstream E: Testing and Guardrails
@@ -293,8 +293,8 @@ Goals:
 
 Primary files:
 
-- [cmd/root.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/cmd/root.go)
-- [internal/cli/shared/shared.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/cli/shared/shared.go)
+- [cmd/root.go](../../cmd/root.go)
+- [internal/cli/shared/shared.go](../../internal/cli/shared/shared.go)
 
 Exit criteria:
 
@@ -355,7 +355,7 @@ Priority families:
 
 Client cleanup targets:
 
-- split [internal/asc/client_options.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/asc/client_options.go) into domain-specific files
+- split [internal/asc/client_options.go](../../internal/asc/client_options.go) into domain-specific files
 - split query helpers where resource or workflow ownership is obvious
 - keep transport/core client code distinct from request-shape catalogs
 
@@ -497,7 +497,7 @@ Q2 target package shape:
 
 Important rule:
 
-No new cross-cutting behavior should be added to [internal/cli/shared/shared.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/cli/shared/shared.go) once Phase 1 starts unless it is part of reducing or delegating the file.
+No new cross-cutting behavior should be added to [internal/cli/shared/shared.go](../../internal/cli/shared/shared.go) once Phase 1 starts unless it is part of reducing or delegating the file.
 
 Scratch-rebuild mindset:
 
@@ -510,7 +510,7 @@ Retirement rule:
 - temporary bridge wrappers may exist in Phase 1 and Phase 2
 - no new code may be written against those wrappers once replacement packages exist
 - all callers must be migrated by Phase 4
-- [internal/cli/shared/shared.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/cli/shared/shared.go) should be deleted, or reduced to a tiny non-authoritative shell under `150` lines, before Q2 closes
+- [internal/cli/shared/shared.go](../../internal/cli/shared/shared.go) should be deleted, or reduced to a tiny non-authoritative shell under `150` lines, before Q2 closes
 
 ## `internal/asc` Cleanup Target
 
@@ -524,7 +524,7 @@ Rewrite stance:
 
 Rules:
 
-1. New resource-specific options should not go into [internal/asc/client_options.go](/Users/rudrank/Developer/CLIs/App-Store-Connect-CLI/internal/asc/client_options.go) unless they truly are cross-resource.
+1. New resource-specific options should not go into [internal/asc/client_options.go](../../internal/asc/client_options.go) unless they truly are cross-resource.
 2. Prefer files like:
    - `client_options_builds.go`
    - `client_options_testflight.go`
