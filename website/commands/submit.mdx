@@ -15,8 +15,8 @@ asc submit create [flags]
 Submit a version for App Store review:
 
 ```bash  theme={null}
-asc submit create --app APP_ID --version VERSION_STRING
-asc submit create --app 123456789 --version 1.2.0
+asc submit create --app APP_ID --version VERSION_STRING --build BUILD_ID --confirm
+asc submit create --app 123456789 --version 1.2.0 --build BUILD_ID --confirm
 ```
 
 <Warning>
@@ -49,6 +49,14 @@ Submission ID: submission-id-here
   Version string to submit (e.g., `1.2.0`)
 </ParamField>
 
+<ParamField path="--build" type="string" required>
+  Build ID to attach before creating the submission
+</ParamField>
+
+<ParamField path="--confirm" type="boolean" required>
+  Required confirmation flag to actually submit the version
+</ParamField>
+
 <ParamField path="--output" type="string">
   Output format: `json`, `table`, or `markdown`
 </ParamField>
@@ -63,7 +71,7 @@ asc validate --app 123456789 --version 1.2.0
 
 # If validation passes, submit
 if [ $? -eq 0 ]; then
-  asc submit create --app 123456789 --version 1.2.0
+  asc submit create --app 123456789 --version 1.2.0 --build BUILD_ID --confirm
 fi
 ```
 
@@ -74,7 +82,7 @@ fi
 - name: Submit for App Store review
   run: |
     asc validate --app ${{ secrets.APP_ID }} --version ${{ github.ref_name }}
-    asc submit create --app ${{ secrets.APP_ID }} --version ${{ github.ref_name }}
+    asc submit create --app ${{ secrets.APP_ID }} --version ${{ github.ref_name }} --build "${{ env.BUILD_ID }}" --confirm
 ```
 
 ### Check submission status
