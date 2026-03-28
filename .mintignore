@@ -7,9 +7,7 @@ docs/
 internal/
 scripts/
 worktrees/
-CONTRIBUTING.md
-README.md
-SUPPORT.md
+/*.md
 *.go
 go.mod
 go.sum
