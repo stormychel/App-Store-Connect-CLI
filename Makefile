@@ -11,10 +11,12 @@ LDFLAGS := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DA
 GO := go
 GOMOD := go.mod
 GOBIN := $(shell $(GO) env GOPATH)/bin
+GO_TOOLCHAIN_VERSION := $(shell $(GO) env GOVERSION)
 GOLANGCI_LINT_TIMEOUT ?= 5m
 INSTALL_PREFIX ?= /usr/local/bin
 GOFUMPT_VERSION ?= v0.9.2
-GOLANGCI_LINT_VERSION ?= v1.64.8
+GOLANGCI_LINT_VERSION ?= v2.11.4
+GOLANGCI_LINT_PACKAGE ?= github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
 # Directories
 SRC_DIR := .
@@ -82,13 +84,7 @@ test-integration:
 .PHONY: lint
 lint:
 	@echo "$(BLUE)Linting code...$(NC)"
-	@if command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint run --timeout=$(GOLANGCI_LINT_TIMEOUT) ./...; \
-	else \
-		echo "$(YELLOW)golangci-lint not found; falling back to 'go vet ./...'.$(NC)"; \
-		echo "$(YELLOW)Install with: make tools (or: $(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)$(NC)"; \
-		$(GO) vet ./...; \
-	fi
+	@GOTOOLCHAIN=$(GO_TOOLCHAIN_VERSION) $(GO) run $(GOLANGCI_LINT_PACKAGE)@$(GOLANGCI_LINT_VERSION) run --timeout=$(GOLANGCI_LINT_TIMEOUT) ./...
 
 # Format code
 .PHONY: format
@@ -128,7 +124,7 @@ format-check:
 tools:
 	@echo "$(BLUE)Installing dev tools...$(NC)"
 	$(GO) install mvdan.cc/gofumpt@$(GOFUMPT_VERSION)
-	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	GOTOOLCHAIN=$(GO_TOOLCHAIN_VERSION) $(GO) install $(GOLANGCI_LINT_PACKAGE)@$(GOLANGCI_LINT_VERSION)
 	@echo "$(GREEN)✓ Tools installed$(NC)"
 	@echo "$(YELLOW)Make sure '$(GOBIN)' is on your PATH$(NC)"
 
