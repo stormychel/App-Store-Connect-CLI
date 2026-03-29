@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/rudrankriyam/App-Store-Connect-CLI/internal/cli/shared"
@@ -15,7 +16,8 @@ type subscriptionIntroductoryOfferImportCSVRow struct {
 	territory       string
 	offerMode       string
 	offerDuration   string
-	numberOfPeriods string
+	numberOfPeriods int
+	hasPeriods      bool
 	startDate       string
 	endDate         string
 	pricePointID    string
@@ -152,12 +154,28 @@ func parseSubscriptionIntroductoryOffersImportCSVRow(record []string, columnIdx 
 		offerDuration = string(normalized)
 	}
 
+	numberOfPeriodsRaw := get("number_of_periods")
+	numberOfPeriods := 0
+	hasPeriods := false
+	if numberOfPeriodsRaw != "" {
+		parsed, err := strconv.Atoi(numberOfPeriodsRaw)
+		if err != nil {
+			return subscriptionIntroductoryOfferImportCSVRow{}, shared.UsageErrorf("row %d: number_of_periods must be a positive integer", rowNumber)
+		}
+		if parsed <= 0 {
+			return subscriptionIntroductoryOfferImportCSVRow{}, shared.UsageErrorf("row %d: number_of_periods must be a positive integer", rowNumber)
+		}
+		numberOfPeriods = parsed
+		hasPeriods = true
+	}
+
 	return subscriptionIntroductoryOfferImportCSVRow{
 		row:             rowNumber,
 		territory:       get("territory"),
 		offerMode:       offerMode,
 		offerDuration:   offerDuration,
-		numberOfPeriods: get("number_of_periods"),
+		numberOfPeriods: numberOfPeriods,
+		hasPeriods:      hasPeriods,
 		startDate:       startDate,
 		endDate:         endDate,
 		pricePointID:    get("price_point_id"),

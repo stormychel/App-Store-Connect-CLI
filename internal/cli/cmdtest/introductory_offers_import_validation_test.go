@@ -426,3 +426,66 @@ func TestSubscriptionsIntroductoryOffersImport_InvalidRowOfferEnumsReturnUsage(t
 		})
 	}
 }
+
+func TestSubscriptionsIntroductoryOffersImport_InvalidRowPeriodsReturnUsage(t *testing.T) {
+	setupAuth(t)
+
+	originalTransport := http.DefaultTransport
+	t.Cleanup(func() {
+		http.DefaultTransport = originalTransport
+	})
+	http.DefaultTransport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		t.Fatalf("unexpected HTTP request: %s %s", req.Method, req.URL.String())
+		return nil, nil
+	})
+
+	tests := []struct {
+		name    string
+		body    string
+		wantErr string
+	}{
+		{
+			name:    "non integer periods",
+			body:    "territory,number_of_periods\nUSA,abc\n",
+			wantErr: "row 1: number_of_periods must be a positive integer",
+		},
+		{
+			name:    "zero periods",
+			body:    "territory,number_of_periods\nUSA,0\n",
+			wantErr: "row 1: number_of_periods must be a positive integer",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			csvPath := filepath.Join(t.TempDir(), "offers.csv")
+			if err := os.WriteFile(csvPath, []byte(test.body), 0o600); err != nil {
+				t.Fatalf("WriteFile() error: %v", err)
+			}
+
+			root := RootCommand("1.2.3")
+			root.FlagSet.SetOutput(io.Discard)
+
+			stdout, stderr := captureOutput(t, func() {
+				if err := root.Parse([]string{
+					"subscriptions", "offers", "introductory", "import",
+					"--subscription-id", "SUB_ID",
+					"--input", csvPath,
+				}); err != nil {
+					t.Fatalf("parse error: %v", err)
+				}
+				err := root.Run(context.Background())
+				if !errors.Is(err, flag.ErrHelp) {
+					t.Fatalf("expected ErrHelp, got %v", err)
+				}
+			})
+
+			if stdout != "" {
+				t.Fatalf("expected empty stdout, got %q", stdout)
+			}
+			if !strings.Contains(stderr, test.wantErr) {
+				t.Fatalf("expected %q in stderr, got %q", test.wantErr, stderr)
+			}
+		})
+	}
+}
