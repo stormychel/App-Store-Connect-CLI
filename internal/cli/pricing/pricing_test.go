@@ -96,6 +96,26 @@ func TestPricingScheduleAutomaticPricesCommand_MissingSchedule(t *testing.T) {
 	}
 }
 
+func TestPricingSchedulePriceCommands_HelpMentionsResolved(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		cmd  func() *ffcli.Command
+	}{
+		{name: "manual", cmd: PricingScheduleManualPricesCommand},
+		{name: "automatic", cmd: PricingScheduleAutomaticPricesCommand},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := tc.cmd()
+			if cmd.FlagSet.Lookup("resolved") == nil {
+				t.Fatalf("expected --resolved flag")
+			}
+			if !strings.Contains(cmd.LongHelp, "--resolved") {
+				t.Fatalf("expected long help to mention --resolved, got %q", cmd.LongHelp)
+			}
+		})
+	}
+}
+
 func TestPricingScheduleCreateCommand_MissingFlags(t *testing.T) {
 	t.Setenv("ASC_APP_ID", "")
 
