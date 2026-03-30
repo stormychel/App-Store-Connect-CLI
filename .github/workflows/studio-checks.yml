@@ -31,9 +31,6 @@ on:
       - 'go.mod'
       - 'go.sum'
 
-permissions:
-  contents: read
-
 jobs:
   studio:
     runs-on: macos-latest

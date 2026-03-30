@@ -150,15 +150,15 @@ describe("App", () => {
   it("renders and calls Bootstrap on mount", async () => {
     render(<App />);
 
-    // After bootstrap resolves, should show auth storage badge
-    expect(await screen.findByText("System Keychain")).toBeInTheDocument();
-    expect(screen.getByText("System Keychain")).toBeInTheDocument();
+    // After bootstrap resolves, should show title and connected dot with hover info
+    expect(await screen.findByRole("img", { name: /Connected via System Keychain/i })).toBeInTheDocument();
+    expect(screen.getByText("ASC Studio")).toBeInTheDocument();
   });
 
   it("navigates to settings view", async () => {
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
 
     fireEvent.click(screen.getByRole("button", { name: /settings/i }));
 
@@ -169,7 +169,7 @@ describe("App", () => {
   it("sends a chat message and expands the dock", async () => {
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
 
     const textarea = screen.getByLabelText("Chat prompt");
     fireEvent.change(textarea, { target: { value: "list builds" } });
@@ -182,7 +182,7 @@ describe("App", () => {
   it("collapses the dock when chevron is clicked", async () => {
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
 
     const textarea = screen.getByLabelText("Chat prompt");
     fireEvent.change(textarea, { target: { value: "test" } });
@@ -202,7 +202,7 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
 
     await pickApp("Test App");
 
@@ -251,7 +251,7 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
 
     await pickApp("First App");
     await pickApp("Second App");
@@ -277,7 +277,7 @@ describe("App", () => {
   it("includes required statuses when loading nominations", async () => {
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
 
     await pickApp("Test App");
     await screen.findByText("Test App");
@@ -295,7 +295,7 @@ describe("App", () => {
   it("fetches all bundle IDs with pagination enabled", async () => {
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
     fireEvent.click(screen.getByRole("tab", { name: "Signing" }));
 
     await waitFor(() => {
@@ -308,7 +308,7 @@ describe("App", () => {
   it("fetches all certificates and profiles with pagination enabled", async () => {
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
     fireEvent.click(screen.getByRole("tab", { name: "Signing" }));
     fireEvent.click(await screen.findByRole("button", { name: "Certificates" }));
     fireEvent.click(await screen.findByRole("button", { name: "Profiles" }));
@@ -330,7 +330,7 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
     fireEvent.change(screen.getByLabelText("Search apps"), { target: { value: "music" } });
 
     expect(screen.getByRole("option", { name: /Music Box/i })).toBeInTheDocument();
@@ -340,7 +340,7 @@ describe("App", () => {
   it("loads signing sections without requiring an app selection", async () => {
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
 
     fireEvent.click(screen.getByRole("tab", { name: "Signing" }));
 
@@ -363,7 +363,7 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
     fireEvent.click(screen.getByRole("tab", { name: "Signing" }));
 
     await waitFor(() => {
@@ -399,7 +399,7 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
     await pickApp("Quoted App");
 
     await waitFor(() => {
@@ -428,7 +428,7 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
     fireEvent.click(screen.getByRole("tab", { name: "Signing" }));
 
     expect(await screen.findByText("com.example.ios")).toBeInTheDocument();
@@ -466,7 +466,7 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
     fireEvent.click(screen.getByRole("tab", { name: "Signing" }));
     await screen.findByText("com.example.alpha");
 
@@ -505,7 +505,7 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
     fireEvent.click(screen.getByRole("tab", { name: "Signing" }));
     await screen.findByText("com.example.existing");
 
@@ -550,7 +550,7 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
     fireEvent.click(screen.getByRole("tab", { name: "Team" }));
     fireEvent.click(await screen.findByRole("button", { name: "Devices" }));
     await screen.findByText("Existing iPhone");
@@ -597,7 +597,7 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
     fireEvent.click(screen.getByRole("button", { name: /settings/i }));
     fireEvent.click(screen.getByRole("button", { name: /save settings/i }));
 
@@ -654,7 +654,7 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
 
     expect(document.querySelector(".studio-shell")).toHaveAttribute("data-theme", "dark");
   });
@@ -666,7 +666,7 @@ describe("App", () => {
   it("loads offer codes only when the promo codes section is opened", async () => {
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
     await pickApp("Test App");
 
     expect(mockGetOfferCodes).not.toHaveBeenCalled();
@@ -728,7 +728,7 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
     await pickApp("First App");
     fireEvent.click(await screen.findByRole("button", { name: "Insights" }));
 
@@ -778,7 +778,7 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByText("System Keychain");
+    await screen.findByRole("img", { name: /Connected/i });
     await pickApp("Test App");
     fireEvent.click(await screen.findByRole("button", { name: "Groups" }));
 

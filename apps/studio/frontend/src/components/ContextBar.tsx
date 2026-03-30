@@ -1,3 +1,5 @@
+import { useCallback, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { allSections, scopes } from "../constants";
 import { AuthState, NavSection } from "../types";
 
@@ -17,6 +19,23 @@ export function ContextBar({
   setActiveSection,
 }: ContextBarProps) {
   const authConfigured = authStatus.authenticated;
+  const tooltipId = useId();
+  const dotRef = useRef<HTMLSpanElement>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
+
+  const showTooltip = useCallback(() => {
+    const el = dotRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setTooltipPos({
+      top: rect.bottom + 6,
+      left: rect.left + rect.width / 2,
+    });
+  }, []);
+
+  const hideTooltip = useCallback(() => setTooltipPos(null), []);
+
+  const tooltipText = [authStatus.storage, authStatus.profile].filter(Boolean).join(" · ");
 
   return (
     <header className="context-bar">
@@ -24,18 +43,37 @@ export function ContextBar({
         {authConfigured ? (
           <>
             <span
-              className="context-dot state-ready"
-              title="Connected"
+              ref={dotRef}
+              className="context-dot-wrap"
+              tabIndex={0}
               role="img"
-              aria-label="Connected"
-            />
-            <span className="context-badge">{authStatus.storage || "Authenticated"}</span>
-            {authStatus.profile && (
-              <span className="context-version">{authStatus.profile}</span>
+              aria-label={`Connected via ${[authStatus.storage, authStatus.profile].filter(Boolean).join(", ")}`}
+              aria-describedby={tooltipPos ? tooltipId : undefined}
+              onMouseEnter={showTooltip}
+              onMouseLeave={hideTooltip}
+              onFocus={showTooltip}
+              onBlur={hideTooltip}
+            >
+              <span className="context-dot state-ready" />
+            </span>
+            {tooltipPos && createPortal(
+              <span
+                id={tooltipId}
+                className="context-dot-tooltip"
+                role="tooltip"
+                style={{ top: tooltipPos.top, left: tooltipPos.left }}
+              >
+                {tooltipText}
+              </span>,
+              document.body,
             )}
+            <span className="context-title">ASC Studio</span>
           </>
         ) : (
-          <span className="context-status state-processing">Not authenticated</span>
+          <>
+            <span className="context-status state-processing">Not authenticated</span>
+            <span className="context-title">ASC Studio</span>
+          </>
         )}
       </div>
       <div className="toolbar-right">

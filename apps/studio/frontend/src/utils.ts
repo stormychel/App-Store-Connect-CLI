@@ -17,7 +17,11 @@ export function insightsWeekStart(today: Date): string {
   const day = today.getDay();
   const daysSinceMonday = day === 0 ? 6 : day - 1;
   monday.setDate(today.getDate() - daysSinceMonday);
-  return monday.toISOString().split("T")[0];
+  // Use local date to avoid UTC timezone shift
+  const y = monday.getFullYear();
+  const m = String(monday.getMonth() + 1).padStart(2, "0");
+  const d = String(monday.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 export function normalizeEnvSnapshot(snapshot?: Partial<EnvSnapshot>): EnvSnapshot {

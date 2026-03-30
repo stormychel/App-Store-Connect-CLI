@@ -20,9 +20,11 @@ func (a *App) newASCCommand(ctx context.Context, ascPath string, args ...string)
 	baseEnv := os.Environ()
 	env := make([]string, 0, len(baseEnv)+4)
 	env = append(env, baseEnv...)
-	env = append(env, "ASC_BYPASS_KEYCHAIN=1")
 	if a.cachedKeyID != "" {
+		// When we have cached credentials, bypass keychain and inject them directly
+		// so we're immune to config.json wipes during the session.
 		env = append(env,
+			"ASC_BYPASS_KEYCHAIN=1",
 			"ASC_KEY_ID="+a.cachedKeyID,
 			"ASC_ISSUER_ID="+a.cachedIssuerID,
 			"ASC_PRIVATE_KEY_PATH="+a.cachedPrivateKeyPath,
