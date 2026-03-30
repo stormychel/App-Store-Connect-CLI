@@ -1,8 +1,8 @@
 package main
 
 import (
-	"encoding/base64"
 	"context"
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"sync/atomic"

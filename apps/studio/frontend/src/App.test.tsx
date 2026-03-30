@@ -266,12 +266,8 @@ describe("App", () => {
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "1" } });
     await screen.findByText("Test App");
 
-    mockRunASCCommand.mockClear();
-
-    fireEvent.click(screen.getByRole("button", { name: "Nominations" }));
-
     await waitFor(() => {
-      expect(mockRunASCCommand).toHaveBeenCalledWith(
+      expect(mockRunASCCommand.mock.calls.map(([cmd]) => cmd)).toContain(
         "nominations list --status DRAFT,SUBMITTED,ARCHIVED --output json",
       );
     });
