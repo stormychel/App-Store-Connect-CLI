@@ -95,6 +95,16 @@ func TestResolveSubscriptionPriceImportTerritoryID_RejectsUnknownThreeLetterCode
 	}
 }
 
+func TestResolveSubscriptionPriceImportTerritoryID_AcceptsSupportedThreeLetterCodeWithoutDisplayName(t *testing.T) {
+	got, err := resolveSubscriptionPriceImportTerritoryID("ANT")
+	if err != nil {
+		t.Fatalf("resolveSubscriptionPriceImportTerritoryID() error: %v", err)
+	}
+	if got != "ANT" {
+		t.Fatalf("expected ANT, got %q", got)
+	}
+}
+
 func TestResolveSubscriptionPriceImportTerritoryID_RejectsTerritoriesOutsideASCSet(t *testing.T) {
 	tests := []string{"ATA", "AQ", "Antarctica"}
 

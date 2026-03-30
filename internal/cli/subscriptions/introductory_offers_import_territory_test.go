@@ -10,6 +10,7 @@ func TestNormalizeSubscriptionIntroductoryOfferImportTerritoryID(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "alpha three", input: "USA", want: "USA"},
+		{name: "supported alpha three without display name", input: "ANT", want: "ANT"},
 		{name: "unknown alpha three", input: "ZZZ", wantErr: true},
 		{name: "alpha two", input: "US", want: "USA"},
 		{name: "english name", input: "Afghanistan", want: "AFG"},

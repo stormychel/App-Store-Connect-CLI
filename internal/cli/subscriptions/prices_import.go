@@ -611,11 +611,11 @@ func subscriptionPriceImportTerritoryNameMap() map[string]territoryNameMapResult
 					if !isSupportedSubscriptionPriceImportTerritoryCode(iso3) {
 						continue
 					}
+					ids[iso3] = struct{}{}
 					name := strings.TrimSpace(regionNamer.Name(region))
 					if name == "" || strings.EqualFold(name, code) || strings.EqualFold(name, "Unknown Region") {
 						continue
 					}
-					ids[iso3] = struct{}{}
 					key := normalizeSubscriptionPriceImportTerritoryName(name)
 					if key == "" {
 						continue

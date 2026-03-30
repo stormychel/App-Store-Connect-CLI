@@ -117,6 +117,64 @@ func TestSubscriptionsIntroductoryOffersImport_CreateSuccessSummary(t *testing.T
 	}
 }
 
+func TestSubscriptionsIntroductoryOffersImport_DryRunAcceptsSupportedThreeLetterTerritoryWithoutDisplayName(t *testing.T) {
+	setupAuth(t)
+	t.Setenv("ASC_CONFIG_PATH", filepath.Join(t.TempDir(), "nonexistent.json"))
+
+	originalTransport := http.DefaultTransport
+	t.Cleanup(func() {
+		http.DefaultTransport = originalTransport
+	})
+	http.DefaultTransport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		t.Fatalf("unexpected HTTP request during dry-run: %s %s", req.Method, req.URL.String())
+		return nil, nil
+	})
+
+	csvPath := writeTempIntroOffersCSV(t, "territory\nANT\n")
+
+	root := RootCommand("1.2.3")
+	root.FlagSet.SetOutput(io.Discard)
+
+	type importSummary struct {
+		DryRun  bool `json:"dryRun"`
+		Total   int  `json:"total"`
+		Created int  `json:"created"`
+		Failed  int  `json:"failed"`
+	}
+
+	stdout, stderr := captureOutput(t, func() {
+		if err := root.Parse([]string{
+			"subscriptions", "offers", "introductory", "import",
+			"--subscription-id", "SUB_ID",
+			"--input", csvPath,
+			"--offer-duration", "ONE_WEEK",
+			"--offer-mode", "FREE_TRIAL",
+			"--number-of-periods", "1",
+			"--dry-run",
+		}); err != nil {
+			t.Fatalf("parse error: %v", err)
+		}
+		if err := root.Run(context.Background()); err != nil {
+			t.Fatalf("run error: %v", err)
+		}
+	})
+
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+
+	var summary importSummary
+	if err := json.Unmarshal([]byte(stdout), &summary); err != nil {
+		t.Fatalf("parse JSON summary: %v", err)
+	}
+	if !summary.DryRun {
+		t.Fatalf("expected dryRun=true")
+	}
+	if summary.Total != 1 || summary.Created != 1 || summary.Failed != 0 {
+		t.Fatalf("unexpected summary: %+v", summary)
+	}
+}
+
 func TestSubscriptionsIntroductoryOffersImport_PartialFailureReturnsReportedErrorAndSummary(t *testing.T) {
 	setupAuth(t)
 	t.Setenv("ASC_CONFIG_PATH", filepath.Join(t.TempDir(), "nonexistent.json"))
