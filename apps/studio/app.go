@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -160,6 +161,9 @@ type TerritoryAvailability struct {
 
 type PricingOverview struct {
 	AvailableInNewTerritories bool                    `json:"availableInNewTerritories"`
+	CurrentPrice              string                  `json:"currentPrice"`
+	CurrentProceeds           string                  `json:"currentProceeds"`
+	BaseCurrency              string                  `json:"baseCurrency"`
 	Territories               []TerritoryAvailability `json:"territories"`
 	SubscriptionPricing       []SubPricingItem        `json:"subscriptionPricing"`
 	Error                     string                  `json:"error,omitempty"`
@@ -532,8 +536,81 @@ func (a *App) GetPricingOverview(appID string) (PricingOverview, error) {
 		items []SubPricingItem
 		err   error
 	}
+	type priceResult struct {
+		price    string
+		proceeds string
+		currency string
+	}
 	availCh := make(chan availResult, 1)
 	pricingCh := make(chan pricingResult, 1)
+	priceCh := make(chan priceResult, 1)
+
+	// Current app price (first manual price → decode base64 ID to get price point, then look up tier)
+	go func() {
+		cmd := exec.CommandContext(ctx, ascPath, "pricing", "schedule", "manual-prices", "--schedule", appID, "--output", "json")
+		cmd.Env = append(os.Environ(), "ASC_BYPASS_KEYCHAIN=1")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			priceCh <- priceResult{}
+			return
+		}
+		type rawPrice struct {
+			ID string `json:"id"`
+		}
+		var env struct {
+			Data []rawPrice `json:"data"`
+		}
+		if json.Unmarshal(out, &env) != nil || len(env.Data) == 0 {
+			priceCh <- priceResult{}
+			return
+		}
+		// Decode base64 ID to get territory
+		decoded, err := base64Decode(env.Data[0].ID)
+		if err != nil {
+			priceCh <- priceResult{}
+			return
+		}
+		var priceInfo struct {
+			Territory string `json:"t"`
+			PriceID   string `json:"p"`
+		}
+		if json.Unmarshal(decoded, &priceInfo) != nil {
+			priceCh <- priceResult{}
+			return
+		}
+		// Look up customer price from tiers for that territory
+		cmd2 := exec.CommandContext(ctx, ascPath, "pricing", "tiers", "--app", appID, "--territory", priceInfo.Territory, "--output", "json")
+		cmd2.Env = append(os.Environ(), "ASC_BYPASS_KEYCHAIN=1")
+		out2, err := cmd2.CombinedOutput()
+		if err != nil {
+			priceCh <- priceResult{}
+			return
+		}
+		type tierItem struct {
+			Tier          int    `json:"tier"`
+			PricePointID  string `json:"pricePointId"`
+			CustomerPrice string `json:"customerPrice"`
+			Proceeds      string `json:"proceeds"`
+		}
+		var tiers []tierItem
+		if json.Unmarshal(out2, &tiers) != nil {
+			priceCh <- priceResult{}
+			return
+		}
+		// Find matching tier by price point ID
+		for _, t := range tiers {
+			if t.PricePointID == env.Data[0].ID {
+				priceCh <- priceResult{price: t.CustomerPrice, proceeds: t.Proceeds, currency: "USD"}
+				return
+			}
+		}
+		// Fallback: first tier is usually the free tier
+		if len(tiers) > 0 {
+			priceCh <- priceResult{price: tiers[0].CustomerPrice, proceeds: tiers[0].Proceeds, currency: "USD"}
+			return
+		}
+		priceCh <- priceResult{}
+	}()
 
 	// Availability + territories (sequential: need avail ID first, but it's the app ID)
 	go func() {
@@ -642,6 +719,7 @@ func (a *App) GetPricingOverview(appID string) (PricingOverview, error) {
 
 	avail := <-availCh
 	pricing := <-pricingCh
+	price := <-priceCh
 
 	if avail.err != nil {
 		return PricingOverview{Error: avail.err.Error()}, nil
@@ -649,6 +727,9 @@ func (a *App) GetPricingOverview(appID string) (PricingOverview, error) {
 
 	return PricingOverview{
 		AvailableInNewTerritories: avail.available,
+		CurrentPrice:              price.price,
+		CurrentProceeds:           price.proceeds,
+		BaseCurrency:              price.currency,
 		Territories:               avail.territories,
 		SubscriptionPricing:       pricing.items,
 	}, nil
@@ -972,6 +1053,11 @@ func configGuard() func() {
 		// Config was changed — restore the original
 		_ = os.WriteFile(path, original, 0o600)
 	}
+}
+
+func base64Decode(s string) ([]byte, error) {
+	// ASC API uses URL-safe base64 without padding
+	return base64.RawURLEncoding.DecodeString(s)
 }
 
 func (a *App) resolveASCPath() (string, error) {

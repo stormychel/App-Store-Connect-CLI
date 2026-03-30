@@ -400,6 +400,9 @@ export namespace main {
 	}
 	export class PricingOverview {
 	    availableInNewTerritories: boolean;
+	    currentPrice: string;
+	    currentProceeds: string;
+	    baseCurrency: string;
 	    territories: TerritoryAvailability[];
 	    subscriptionPricing: SubPricingItem[];
 	    error?: string;
@@ -411,6 +414,9 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.availableInNewTerritories = source["availableInNewTerritories"];
+	        this.currentPrice = source["currentPrice"];
+	        this.currentProceeds = source["currentProceeds"];
+	        this.baseCurrency = source["baseCurrency"];
 	        this.territories = this.convertValues(source["territories"], TerritoryAvailability);
 	        this.subscriptionPricing = this.convertValues(source["subscriptionPricing"], SubPricingItem);
 	        this.error = source["error"];
