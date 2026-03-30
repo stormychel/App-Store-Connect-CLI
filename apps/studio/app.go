@@ -534,7 +534,6 @@ func (a *App) GetPricingOverview(appID string) (PricingOverview, error) {
 	}
 	type pricingResult struct {
 		items []SubPricingItem
-		err   error
 	}
 	type priceResult struct {
 		price    string
@@ -634,7 +633,10 @@ func (a *App) GetPricingOverview(appID string) (PricingOverview, error) {
 				} `json:"attributes"`
 			} `json:"data"`
 		}
-		json.Unmarshal(out, &env)
+		if err := json.Unmarshal(out, &env); err != nil {
+			availCh <- availResult{err: fmt.Errorf("failed to parse availability: %w", err)}
+			return
+		}
 
 		// 2. Get territory availabilities
 		cmd2 := exec.CommandContext(ctx, ascPath, "pricing", "availability", "territory-availabilities",
