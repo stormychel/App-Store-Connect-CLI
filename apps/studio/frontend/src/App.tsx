@@ -65,7 +65,7 @@ const sectionCommands: Record<string, string> = {
   "custom-product-pages": "product-pages custom-pages list --app APP_ID --output json",
   "ppo": "product-pages experiments list --v2 --app APP_ID --output json",
   "game-center": "game-center achievements list --app APP_ID --output json",
-  "pricing": "pricing schedule view --app APP_ID --output json",
+  "pricing": "pricing availability view --app APP_ID --output json",
   "iap": "iap list --app APP_ID --output json",
   "nominations": "nominations list --output json",
 };
@@ -100,6 +100,8 @@ const fieldLabels: Record<string, string> = {
   supportsLargeText: "Large Text", supportsVoiceOver: "VoiceOver",
   supportsSwitchControl: "Switch Control", supportsAssistiveTouch: "Assistive Touch",
   supportsReduceMotion: "Reduce Motion", supportsGuidedAccess: "Guided Access",
+  availableInNewTerritories: "Available in New Territories", customerPrice: "Customer Price",
+  proceeds: "Proceeds",
 };
 
 // Format raw API enum values for display
