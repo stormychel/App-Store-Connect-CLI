@@ -206,8 +206,8 @@ describe("App", () => {
 
     await pickApp("Test App");
 
-    await screen.findByRole("button", { name: "TestFlight" });
-    fireEvent.click(screen.getByRole("button", { name: "TestFlight" }));
+    await screen.findByRole("button", { name: "Groups" });
+    fireEvent.click(screen.getByRole("button", { name: "Groups" }));
 
     await waitFor(() => {
       expect(screen.getByText("Loading…")).toBeInTheDocument();
@@ -256,7 +256,7 @@ describe("App", () => {
     await pickApp("First App");
     await pickApp("Second App");
 
-    expect(await screen.findByText("Second App")).toBeInTheDocument();
+    expect(await screen.findByText("com.example.second")).toBeInTheDocument();
 
     resolveFirstApp?.({
       id: "1",
@@ -269,9 +269,9 @@ describe("App", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Second App")).toBeInTheDocument();
+      expect(screen.getByText("com.example.second")).toBeInTheDocument();
     });
-    expect(screen.queryByText("First App")).not.toBeInTheDocument();
+    expect(screen.queryByText("com.example.first")).not.toBeInTheDocument();
   });
 
   it("includes required statuses when loading nominations", async () => {
@@ -584,7 +584,7 @@ describe("App", () => {
 
     await screen.findByText("Connected");
     await pickApp("Test App");
-    fireEvent.click(await screen.findByRole("button", { name: "TestFlight" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Groups" }));
 
     fireEvent.click((await screen.findAllByText("Internal"))[0].closest("tr")!);
     fireEvent.click(await screen.findByRole("button", { name: "← TestFlight" }));

@@ -1574,3 +1574,31 @@ textarea {
 .feedback-screenshot.landscape {
   height: 100px;
 }
+
+/* ── App detail header row ───────────────────────── */
+
+.app-detail-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.submit-review-btn {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease;
+}
+
+.submit-review-btn:hover {
+  opacity: 0.85;
+}

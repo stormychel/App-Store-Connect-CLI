@@ -24,11 +24,6 @@ const scopes: Scope[] = [
         label: "Release",
         items: [
           { id: "builds", label: "Builds", description: "Build processing and history" },
-          { id: "submit", label: "Submit", description: "Submit for review" },
-          { id: "validate", label: "Validate", description: "Pre-submission validation" },
-          { id: "publish", label: "Publish", description: "Release workflows" },
-          { id: "release", label: "Release", description: "Release management" },
-          { id: "release-notes", label: "Release Notes", description: "What's new" },
           { id: "build-localizations", label: "Build Localizations", description: "Build release notes" },
           { id: "build-bundles", label: "Build Bundles", description: "Build bundle info" },
         ],
@@ -190,9 +185,6 @@ const sectionCommands: Record<string, string> = {
   "iap": "iap list --app APP_ID --output json",
   "nominations": "nominations list --app APP_ID --status DRAFT,SUBMITTED,ARCHIVED --output json",
   "performance": "performance metrics list --app APP_ID --output json",
-  "submit": "review submissions-list --app APP_ID --output json",
-  "validate": "validate --app APP_ID --output json",
-  "release-notes": "localizations list --app APP_ID --output json",
   "localizations": "localizations list --app APP_ID --type app-info --output json",
   "video-previews": "localizations preview-sets list --app APP_ID --output json",
   "categories": "categories list --output json",
@@ -221,8 +213,6 @@ const sectionCommands: Record<string, string> = {
   "merchant-ids": "merchant-ids list --output json",
   "pass-type-ids": "pass-type-ids list --output json",
   "schema": "schema index --output json",
-  "publish": "publish --help",
-  "release": "release --app APP_ID --output json",
   "metadata": "metadata pull --app APP_ID --dry-run --output json",
   "agreements": "agreements list --output json",
   "build-bundles": "build-bundles list --app APP_ID --output json",
@@ -1347,8 +1337,39 @@ export default function App() {
           <div className="app-detail-view">
             {/* Header */}
             <div className="app-detail-header">
-              <p className="app-detail-name">{appDetail.name}</p>
-              {appDetail.subtitle && <p className="app-detail-subtitle">{appDetail.subtitle}</p>}
+              <div className="app-detail-header-row">
+                <div>
+                  <p className="app-detail-name">{appDetail.name}</p>
+                  {appDetail.subtitle && <p className="app-detail-subtitle">{appDetail.subtitle}</p>}
+                </div>
+                <button
+                  className="submit-review-btn"
+                  type="button"
+                  onClick={() => {
+                    if (selectedAppId) {
+                      RunASCCommand(`review submissions-list --app ${selectedAppId} --output json`)
+                        .then((res) => {
+                          if (res.error) { alert(res.error); return; }
+                          try {
+                            const d = JSON.parse(res.data);
+                            const items = d.data ?? [];
+                            const pending = items.find((i: Record<string, unknown>) => {
+                              const attrs = i.attributes as Record<string, string> | undefined;
+                              return attrs?.state === "READY_FOR_REVIEW" || attrs?.state === "WAITING_FOR_REVIEW";
+                            });
+                            if (pending) {
+                              alert(`Already submitted: ${(pending.attributes as Record<string, string>)?.state}`);
+                            } else {
+                              alert("No pending submission. Use ACP chat to run: asc submit --app " + selectedAppId);
+                            }
+                          } catch { alert("Could not parse submission status"); }
+                        });
+                    }
+                  }}
+                >
+                  Submit for Review
+                </button>
+              </div>
             </div>
 
             {/* General info */}
