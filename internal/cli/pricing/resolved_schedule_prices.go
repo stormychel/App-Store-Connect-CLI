@@ -12,18 +12,8 @@ import (
 	"github.com/rudrankriyam/App-Store-Connect-CLI/internal/cli/shared"
 )
 
-type resolvedAppPriceEntry struct {
-	TerritoryID  string
-	PricePointID string
-	StartDate    string
-	EndDate      string
-	Manual       bool
-	StartAt      *time.Time
-	EndAt        *time.Time
-}
-
 type resolvedAppPriceCandidate struct {
-	entry resolvedAppPriceEntry
+	entry appPriceEntry
 	row   shared.ResolvedPriceRow
 }
 
@@ -101,7 +91,7 @@ func consumeResolvedAppSchedulePrices(
 	}
 
 	return asc.PaginateEach(ctx, firstPage, func(ctx context.Context, next string) (asc.PaginatedResponse, error) {
-		nextURL, err := shared.MergeNextURLQuery(next, resolvedAppSchedulePricesQuery(limit))
+		nextURL, err := shared.MergeNextURLQuery(next, appSchedulePricesQuery(limit))
 		if err != nil {
 			return nil, err
 		}
@@ -115,7 +105,7 @@ func consumeResolvedAppSchedulePrices(
 	})
 }
 
-func resolvedAppSchedulePricesQuery(limit int) url.Values {
+func appSchedulePricesQuery(limit int) url.Values {
 	values := url.Values{}
 	values.Set("include", "appPricePoint,territory")
 	values.Set("fields[appPrices]", "manual,startDate,endDate,appPricePoint,territory")
@@ -141,15 +131,15 @@ func consumeResolvedAppPricePage(
 		return err
 	}
 
-	asOf := resolvedAppDateOnlyUTC(now)
+	asOf := dateOnlyUTC(now)
 	for _, item := range page.Data {
 		entry, row, ok := resolvedAppPriceCandidateFromResource(item, values, currencies)
-		if !ok || !resolvedAppPriceEntryActiveOn(entry, asOf) {
+		if !ok || !appPriceEntryActiveOn(entry, asOf) {
 			continue
 		}
 
 		existing, exists := candidates[entry.TerritoryID]
-		if !exists || resolvedAppPriceEntryIsNewer(entry, existing.entry) {
+		if !exists || appPriceEntryIsNewer(entry, existing.entry) {
 			candidates[entry.TerritoryID] = resolvedAppPriceCandidate{entry: entry, row: row}
 		}
 	}
@@ -201,19 +191,19 @@ func resolvedAppPriceCandidateFromResource(
 	item asc.Resource[asc.AppPriceAttributes],
 	values map[string]asc.AppPricePointV3Attributes,
 	currencies map[string]string,
-) (resolvedAppPriceEntry, shared.ResolvedPriceRow, bool) {
+) (appPriceEntry, shared.ResolvedPriceRow, bool) {
 	territoryID := strings.ToUpper(strings.TrimSpace(appPriceRelationshipID(item.Relationships, "territory")))
 	pricePointID := strings.TrimSpace(appPriceRelationshipID(item.Relationships, "appPricePoint"))
 	if territoryID == "" || pricePointID == "" {
-		return resolvedAppPriceEntry{}, shared.ResolvedPriceRow{}, false
+		return appPriceEntry{}, shared.ResolvedPriceRow{}, false
 	}
 
 	value, ok := values[pricePointID]
 	if !ok {
-		return resolvedAppPriceEntry{}, shared.ResolvedPriceRow{}, false
+		return appPriceEntry{}, shared.ResolvedPriceRow{}, false
 	}
 
-	entry := resolvedNewAppPriceEntry(
+	entry := newAppPriceEntry(
 		territoryID,
 		pricePointID,
 		strings.TrimSpace(item.Attributes.StartDate),
@@ -236,86 +226,6 @@ func resolvedAppPriceCandidateFromResource(
 		EndDate:       entry.EndDate,
 		Manual:        resolvedAppBoolPtr(item.Attributes.Manual),
 	}, true
-}
-
-func appPriceRelationshipID(relationships json.RawMessage, key string) string {
-	if len(relationships) == 0 {
-		return ""
-	}
-
-	var rels map[string]json.RawMessage
-	if err := json.Unmarshal(relationships, &rels); err != nil {
-		return ""
-	}
-	rawRelationship, ok := rels[key]
-	if !ok {
-		return ""
-	}
-
-	var relationship struct {
-		Data asc.ResourceData `json:"data"`
-	}
-	if err := json.Unmarshal(rawRelationship, &relationship); err != nil {
-		return ""
-	}
-
-	return strings.TrimSpace(relationship.Data.ID)
-}
-
-func resolvedNewAppPriceEntry(territoryID, pricePointID, startDate, endDate string, manual bool) resolvedAppPriceEntry {
-	return resolvedAppPriceEntry{
-		TerritoryID:  strings.ToUpper(strings.TrimSpace(territoryID)),
-		PricePointID: strings.TrimSpace(pricePointID),
-		StartDate:    strings.TrimSpace(startDate),
-		EndDate:      strings.TrimSpace(endDate),
-		Manual:       manual,
-		StartAt:      resolvedParseAppPriceDate(startDate),
-		EndAt:        resolvedParseAppPriceDate(endDate),
-	}
-}
-
-func resolvedParseAppPriceDate(value string) *time.Time {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return nil
-	}
-	parsed, err := time.Parse("2006-01-02", value)
-	if err != nil {
-		return nil
-	}
-	normalized := resolvedAppDateOnlyUTC(parsed.UTC())
-	return &normalized
-}
-
-func resolvedAppDateOnlyUTC(value time.Time) time.Time {
-	return time.Date(value.UTC().Year(), value.UTC().Month(), value.UTC().Day(), 0, 0, 0, 0, time.UTC)
-}
-
-func resolvedAppPriceEntryActiveOn(entry resolvedAppPriceEntry, at time.Time) bool {
-	if entry.StartAt != nil && entry.StartAt.After(at) {
-		return false
-	}
-	if entry.EndAt != nil && entry.EndAt.Before(at) {
-		return false
-	}
-	return true
-}
-
-func resolvedAppPriceEntryIsNewer(candidate, existing resolvedAppPriceEntry) bool {
-	switch {
-	case candidate.StartAt == nil && existing.StartAt != nil:
-		return false
-	case candidate.StartAt != nil && existing.StartAt == nil:
-		return true
-	case candidate.StartAt != nil && existing.StartAt != nil:
-		if !candidate.StartAt.Equal(*existing.StartAt) {
-			return candidate.StartAt.After(*existing.StartAt)
-		}
-	}
-	if candidate.Manual != existing.Manual {
-		return candidate.Manual && !existing.Manual
-	}
-	return candidate.PricePointID > existing.PricePointID
 }
 
 func resolvedAppBoolPtr(value bool) *bool {

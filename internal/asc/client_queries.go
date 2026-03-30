@@ -556,6 +556,17 @@ type pricePointsQuery struct {
 	territory string
 }
 
+type appPriceSchedulePricesQuery struct {
+	listQuery
+	startDate        string
+	endDate          string
+	territory        string
+	include          []string
+	priceFields      []string
+	pricePointFields []string
+	territoryFields  []string
+}
+
 type accessibilityDeclarationsQuery struct {
 	listQuery
 	deviceFamilies []string
@@ -1554,6 +1565,25 @@ func buildPricePointsQuery(query *pricePointsQuery) string {
 	if strings.TrimSpace(query.territory) != "" {
 		values.Set("filter[territory]", strings.TrimSpace(query.territory))
 	}
+	addLimit(values, query.limit)
+	return values.Encode()
+}
+
+func buildAppPriceSchedulePricesQuery(query *appPriceSchedulePricesQuery) string {
+	values := url.Values{}
+	if strings.TrimSpace(query.startDate) != "" {
+		values.Set("filter[startDate]", strings.TrimSpace(query.startDate))
+	}
+	if strings.TrimSpace(query.endDate) != "" {
+		values.Set("filter[endDate]", strings.TrimSpace(query.endDate))
+	}
+	if strings.TrimSpace(query.territory) != "" {
+		values.Set("filter[territory]", strings.TrimSpace(query.territory))
+	}
+	addCSV(values, "include", query.include)
+	addCSV(values, "fields[appPrices]", query.priceFields)
+	addCSV(values, "fields[appPricePoints]", query.pricePointFields)
+	addCSV(values, "fields[territories]", query.territoryFields)
 	addLimit(values, query.limit)
 	return values.Encode()
 }
