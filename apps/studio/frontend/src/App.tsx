@@ -311,6 +311,33 @@ function fmt(val: string): string {
   return val;
 }
 
+// Human-readable screenshot display type labels
+const screenshotDisplayLabels: Record<string, string> = {
+  APP_IPHONE_67: "iPhone 6.7\"",
+  APP_IPHONE_65: "iPhone 6.5\"",
+  APP_IPHONE_61: "iPhone 6.1\"",
+  APP_IPHONE_58: "iPhone 5.8\"",
+  APP_IPHONE_55: "iPhone 5.5\"",
+  APP_IPHONE_47: "iPhone 4.7\"",
+  APP_IPHONE_40: "iPhone 4\"",
+  APP_IPHONE_35: "iPhone 3.5\"",
+  APP_IPAD_PRO_3GEN_129: "iPad Pro 12.9\" (3rd gen)",
+  APP_IPAD_PRO_3GEN_11: "iPad Pro 11\"",
+  APP_IPAD_PRO_129: "iPad Pro 12.9\"",
+  APP_IPAD_105: "iPad 10.5\"",
+  APP_IPAD_97: "iPad 9.7\"",
+  APP_DESKTOP: "Mac",
+  APP_WATCH_SERIES_7: "Apple Watch Series 7",
+  APP_WATCH_SERIES_4: "Apple Watch Series 4",
+  APP_WATCH_SERIES_3: "Apple Watch Series 3",
+  APP_WATCH_ULTRA: "Apple Watch Ultra",
+  APP_APPLE_TV: "Apple TV",
+  APP_VISION_PRO: "Apple Vision Pro",
+};
+function screenshotLabel(displayType: string): string {
+  return screenshotDisplayLabels[displayType] ?? displayType.replace(/^APP_/, "").replace(/_/g, " ");
+}
+
 type EnvSnapshot = {
   configPath: string;
   configPresent: boolean;
@@ -2039,7 +2066,7 @@ export default function App() {
                     </div>
                   )}
                   {screenshotSets.map((set) => {
-                    const label = set.displayType.replace(/^APP_/, "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+                    const label = screenshotLabel(set.displayType);
                     return (
                       <div key={set.displayType} className="screenshot-set">
                         <p className="screenshot-set-label">{label}</p>

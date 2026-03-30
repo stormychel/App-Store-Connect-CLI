@@ -1005,16 +1005,16 @@ textarea {
 
 .screenshot-thumb {
   flex-shrink: 0;
-  height: 220px;
+  height: 320px;
   width: auto;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid var(--separator);
   object-fit: cover;
   background: var(--surface-secondary);
 }
 
 .screenshot-thumb.landscape {
-  height: 140px;
+  height: 200px;
 }
 
 /* ── Data tables ─────────────────────────────────── */
