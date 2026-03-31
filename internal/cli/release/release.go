@@ -35,9 +35,11 @@ release run is the canonical path for shipping to the App Store. It orchestrates
 After submission, monitor progress with:
   asc status --app "APP_ID"
 
-For lower-level control, use:
+For lower-level submission lifecycle control, use:
   asc validate --app "APP_ID" --version "VERSION"
-  asc submit create --app "APP_ID" --version "VERSION" --build "BUILD_ID" --confirm
+  asc submit preflight --app "APP_ID" --version "VERSION"
+  asc submit status --version-id "VERSION_ID"
+  asc submit cancel --version-id "VERSION_ID" --confirm
 
 Examples:
   asc release stage --app "APP_ID" --version "2.4.0" --build "BUILD_ID" --copy-metadata-from "2.3.2" --dry-run

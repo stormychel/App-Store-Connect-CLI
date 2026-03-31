@@ -335,7 +335,7 @@ workflows:
       - monitor:
           context: app-store-connect
           requires:
-            - submit
+            - release
           filters:
             tags:
               only: /^v.*/

@@ -454,8 +454,17 @@ func TestRootCommand_ReleaseHelpMentionsCanonicalPathAndStatus(t *testing.T) {
 	if !strings.Contains(usage, `asc status --app "APP_ID"`) {
 		t.Fatalf("expected release help to mention status monitoring, got %q", usage)
 	}
-	if !strings.Contains(usage, `asc submit create --app "APP_ID" --version "VERSION" --build "BUILD_ID" --confirm`) {
-		t.Fatalf("expected release help to keep low-level submit guidance discoverable, got %q", usage)
+	if !strings.Contains(usage, `asc submit preflight --app "APP_ID" --version "VERSION"`) {
+		t.Fatalf("expected release help to keep submission preflight guidance discoverable, got %q", usage)
+	}
+	if !strings.Contains(usage, `asc submit status --version-id "VERSION_ID"`) {
+		t.Fatalf("expected release help to mention submission status, got %q", usage)
+	}
+	if !strings.Contains(usage, `asc submit cancel --version-id "VERSION_ID" --confirm`) {
+		t.Fatalf("expected release help to mention submission cancellation, got %q", usage)
+	}
+	if strings.Contains(usage, `asc submit create --app "APP_ID" --version "VERSION" --build "BUILD_ID" --confirm`) {
+		t.Fatalf("expected release help to stop promoting deprecated submit create guidance, got %q", usage)
 	}
 }
 
