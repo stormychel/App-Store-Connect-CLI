@@ -870,7 +870,7 @@ func uploadScreenshotsWithConfig[T any](ctx context.Context, cfg screenshotUploa
 		existingResp, err := cfg.Client.GetAppScreenshots(fetchCtx, set.ID)
 		fetchCancel()
 		if err != nil {
-			return asc.AppScreenshotUploadResult{}, err
+			return zero, err
 		}
 		existingScreenshots = existingResp.Data
 	}
