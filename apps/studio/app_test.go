@@ -41,6 +41,23 @@ func TestParseAvailabilityViewOutputReturnsResourceID(t *testing.T) {
 	}
 }
 
+func TestSetEnvVarDoesNotMutateInputSlice(t *testing.T) {
+	original := []string{"A=1", "ASC_KEY_ID=old", "B=2"}
+	snapshot := append([]string(nil), original...)
+
+	got := setEnvVar(original, "ASC_KEY_ID", "new")
+	got = setEnvVar(got, "ASC_ISSUER_ID", "issuer")
+
+	if strings.Join(original, "\n") != strings.Join(snapshot, "\n") {
+		t.Fatalf("input slice mutated:\ngot  %q\nwant %q", original, snapshot)
+	}
+
+	want := []string{"A=1", "B=2", "ASC_KEY_ID=new", "ASC_ISSUER_ID=issuer"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("setEnvVar() result = %q, want %q", got, want)
+	}
+}
+
 func TestParseFirstAppPriceReference(t *testing.T) {
 	priceID := base64.RawURLEncoding.EncodeToString([]byte(`{"t":"CAN","p":"price-point-42"}`))
 

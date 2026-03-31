@@ -71,7 +71,7 @@ func isolateASCConfig(cmd *exec.Cmd) func() {
 
 func setEnvVar(env []string, key, value string) []string {
 	prefix := key + "="
-	filtered := env[:0]
+	filtered := make([]string, 0, len(env)+1)
 	for _, entry := range env {
 		if strings.HasPrefix(entry, prefix) {
 			continue
