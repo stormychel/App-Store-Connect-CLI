@@ -689,13 +689,16 @@ func TestBuildBetaTestersQuery(t *testing.T) {
 	opts := []BetaTestersOption{
 		WithBetaTestersLimit(25),
 		WithBetaTestersEmail("tester@example.com"),
-		WithBetaTestersGroupIDs([]string{"group-1", " group-2 "}),
 	}
 	for _, opt := range opts {
 		opt(query)
 	}
 
-	values, err := url.ParseQuery(buildBetaTestersQuery("APP_ID", query))
+	qs, qerr := buildBetaTestersQuery("APP_ID", query)
+	if qerr != nil {
+		t.Fatalf("unexpected error: %v", qerr)
+	}
+	values, err := url.ParseQuery(qs)
 	if err != nil {
 		t.Fatalf("failed to parse query: %v", err)
 	}
@@ -705,11 +708,55 @@ func TestBuildBetaTestersQuery(t *testing.T) {
 	if got := values.Get("filter[email]"); got != "tester@example.com" {
 		t.Fatalf("expected filter[email]=tester@example.com, got %q", got)
 	}
-	if got := values.Get("filter[betaGroups]"); got != "group-1,group-2" {
-		t.Fatalf("expected filter[betaGroups]=group-1,group-2, got %q", got)
+	if got := values.Get("filter[betaGroups]"); got != "" {
+		t.Fatalf("expected no filter[betaGroups], got %q", got)
 	}
 	if got := values.Get("limit"); got != "25" {
 		t.Fatalf("expected limit=25, got %q", got)
+	}
+}
+
+func TestBuildBetaTestersQueryPrefersGroupFilterOverAppFilter(t *testing.T) {
+	query := &betaTestersQuery{}
+	opts := []BetaTestersOption{
+		WithBetaTestersGroupIDs([]string{"group-1"}),
+	}
+	for _, opt := range opts {
+		opt(query)
+	}
+
+	qs, qerr := buildBetaTestersQuery("APP_ID", query)
+	if qerr != nil {
+		t.Fatalf("unexpected error: %v", qerr)
+	}
+	values, err := url.ParseQuery(qs)
+	if err != nil {
+		t.Fatalf("failed to parse query: %v", err)
+	}
+	if got := values.Get("filter[apps]"); got != "" {
+		t.Fatalf("expected no filter[apps] when filter[betaGroups] is set, got %q", got)
+	}
+	if got := values.Get("filter[betaGroups]"); got != "group-1" {
+		t.Fatalf("expected filter[betaGroups]=group-1, got %q", got)
+	}
+}
+
+func TestBuildBetaTestersQueryRejectsGroupAndBuild(t *testing.T) {
+	query := &betaTestersQuery{}
+	opts := []BetaTestersOption{
+		WithBetaTestersGroupIDs([]string{"group-1"}),
+		WithBetaTestersBuildID("build-1"),
+	}
+	for _, opt := range opts {
+		opt(query)
+	}
+
+	_, err := buildBetaTestersQuery("APP_ID", query)
+	if err == nil {
+		t.Fatal("expected error when both group and build filters are set, got nil")
+	}
+	if !strings.Contains(err.Error(), "--group cannot be combined with --build-id") {
+		t.Fatalf("expected conflicting filter error, got %q", err.Error())
 	}
 }
 
@@ -2329,6 +2376,64 @@ func TestAppScreenshotSetCreateRequest_JSON_CustomProductPageLocalization(t *tes
 	}
 	if _, ok := parsed.Data.Relationships["appStoreVersionLocalization"]; ok {
 		t.Fatalf("expected appStoreVersionLocalization to be omitted when unset")
+	}
+}
+
+func TestAppScreenshotSetCreateRequest_JSON_ExperimentTreatmentLocalization(t *testing.T) {
+	req := AppScreenshotSetCreateRequest{
+		Data: AppScreenshotSetCreateData{
+			Type:       ResourceTypeAppScreenshotSets,
+			Attributes: AppScreenshotSetAttributes{ScreenshotDisplayType: "APP_IPHONE_65"},
+			Relationships: &AppScreenshotSetRelationships{
+				AppStoreVersionExperimentTreatmentLocalization: &Relationship{
+					Data: ResourceData{
+						Type: ResourceTypeAppStoreVersionExperimentTreatmentLocalizations,
+						ID:   "TREATMENT_LOC_ID_123",
+					},
+				},
+			},
+		},
+	}
+
+	body, err := BuildRequestBody(req)
+	if err != nil {
+		t.Fatalf("BuildRequestBody() error: %v", err)
+	}
+
+	buf := new(bytes.Buffer)
+	if _, err := buf.ReadFrom(body); err != nil {
+		t.Fatalf("read body error: %v", err)
+	}
+
+	var parsed struct {
+		Data struct {
+			Relationships map[string]struct {
+				Data struct {
+					Type string `json:"type"`
+					ID   string `json:"id"`
+				} `json:"data"`
+			} `json:"relationships"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+		t.Fatalf("failed to unmarshal body: %v", err)
+	}
+
+	rel, ok := parsed.Data.Relationships["appStoreVersionExperimentTreatmentLocalization"]
+	if !ok {
+		t.Fatalf("expected appStoreVersionExperimentTreatmentLocalization relationship, got %+v", parsed.Data.Relationships)
+	}
+	if rel.Data.Type != "appStoreVersionExperimentTreatmentLocalizations" {
+		t.Fatalf("expected relationship type=appStoreVersionExperimentTreatmentLocalizations, got %q", rel.Data.Type)
+	}
+	if rel.Data.ID != "TREATMENT_LOC_ID_123" {
+		t.Fatalf("expected relationship id=TREATMENT_LOC_ID_123, got %q", rel.Data.ID)
+	}
+	if _, ok := parsed.Data.Relationships["appStoreVersionLocalization"]; ok {
+		t.Fatalf("expected appStoreVersionLocalization to be omitted when unset")
+	}
+	if _, ok := parsed.Data.Relationships["appCustomProductPageLocalization"]; ok {
+		t.Fatalf("expected appCustomProductPageLocalization to be omitted when unset")
 	}
 }
 

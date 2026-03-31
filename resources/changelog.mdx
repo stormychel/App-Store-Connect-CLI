@@ -10,6 +10,48 @@ The App Store Connect CLI follows semantic versioning. All releases are availabl
 
 ## Latest Releases
 
+### Unreleased
+
+No unreleased changes yet.
+
+### 0.48.0
+
+**Highlights**:
+
+* `asc validate` is now the canonical App Store submission readiness report with broader checks and clearer upgrade guidance from `asc submit preflight`
+* Pricing workflows are easier to inspect with `asc pricing current` and more reliable current-price pagination/filtering
+* Subscription introductory offers can now be created in bulk from CSV with shared defaults and row-level overrides
+
+**Changes**:
+
+* `feat(validate)`: Make `asc validate` the canonical App Store submission readiness command and deprecate `asc submit preflight` as a compatibility wrapper
+* `feat(pricing)`: Add `asc pricing current` for current app price lookup with territory filtering
+* `fix(pricing)`: Preserve pricing query params while paginating and tighten current-price territory behavior
+* `feat(subscriptions)`: Add CSV import for subscription introductory offers with inherited defaults, row overrides, dry-run summaries, and stronger validation
+* `feat(web)`: Add a false-only regulated medical-device declaration command for experimental web-session workflows
+* `fix(output)`: Display human-readable platform names in table and markdown output
+* `fix(testflight)`: Reject conflicting `--group` and `--build-id` beta tester selectors consistently
+* `fix(game-center)`: Handle missing Game Center detail lists without crashing
+* `fix(subscriptions)`: Improve subscription import preflight validation
+
+### 0.47.1
+
+**Highlights**:
+
+* Improved high-level release and submission workflow reliability
+* Better status/watch behavior and review submission summaries
+* Expanded docs, release guardrails, and CI hardening for the new website split
+
+**Changes**:
+
+* `feat(release)`: Split shared release submission behavior across release, publish, submit, and status flows
+* `fix(status)`: Preserve watch timeout semantics while treating clean watch deadlines as expected exits
+* `fix(status)`: Summarize review submissions per platform and keep bounded watch polling consistent
+* `fix(submit)`: Preserve shared flow reuse semantics and surface preparation messaging more clearly
+* `fix(publish)`: Honor explicit submit timeout budgets while preserving default pipeline timeouts
+* `build(ci)`: Split CI, hook, and release hardening for docs-aware checks
+* `docs`: Split help taxonomy and recover Mintlify website content and workflows
+
 ### v0.36.3
 
 **Highlights**:

@@ -2003,8 +2003,8 @@ func TestGetBetaTesters_WithAppFilter(t *testing.T) {
 		if values.Get("filter[email]") != "tester@example.com" {
 			t.Fatalf("expected filter[email]=tester@example.com, got %q", values.Get("filter[email]"))
 		}
-		if values.Get("filter[betaGroups]") != "group-1,group-2" {
-			t.Fatalf("expected filter[betaGroups]=group-1,group-2, got %q", values.Get("filter[betaGroups]"))
+		if values.Get("filter[betaGroups]") != "" {
+			t.Fatalf("expected no filter[betaGroups], got %q", values.Get("filter[betaGroups]"))
 		}
 		if values.Get("limit") != "5" {
 			t.Fatalf("expected limit=5, got %q", values.Get("limit"))
@@ -2016,7 +2016,6 @@ func TestGetBetaTesters_WithAppFilter(t *testing.T) {
 		context.Background(),
 		"123",
 		WithBetaTestersEmail("tester@example.com"),
-		WithBetaTestersGroupIDs([]string{"group-1", "group-2"}),
 		WithBetaTestersLimit(5),
 	); err != nil {
 		t.Fatalf("GetBetaTesters() error: %v", err)
@@ -2024,7 +2023,7 @@ func TestGetBetaTesters_WithAppFilter(t *testing.T) {
 }
 
 func TestGetBetaTesters_WithBuildFilter(t *testing.T) {
-	// API only allows one relationship filter, so builds takes precedence over apps
+	// API only allows one relationship filter; build filter takes precedence over apps.
 	response := jsonResponse(http.StatusOK, `{"data":[{"type":"betaTesters","id":"1","attributes":{"email":"tester@example.com"}}]}`)
 	client := newTestClient(t, func(req *http.Request) {
 		if req.Method != http.MethodGet {
@@ -2054,6 +2053,27 @@ func TestGetBetaTesters_WithBuildFilter(t *testing.T) {
 		WithBetaTestersBuildID("build-1"),
 	); err != nil {
 		t.Fatalf("GetBetaTesters() error: %v", err)
+	}
+}
+
+func TestGetBetaTesters_RejectsGroupAndBuildConflict(t *testing.T) {
+	// API only allows one relationship filter; group + build must be rejected.
+	response := jsonResponse(http.StatusOK, `{"data":[]}`)
+	client := newTestClient(t, func(req *http.Request) {
+		t.Fatal("request should not be made when conflicting filters are provided")
+	}, response)
+
+	_, err := client.GetBetaTesters(
+		context.Background(),
+		"123",
+		WithBetaTestersGroupIDs([]string{"group-1"}),
+		WithBetaTestersBuildID("build-1"),
+	)
+	if err == nil {
+		t.Fatal("expected error when both group and build filters are set, got nil")
+	}
+	if !strings.Contains(err.Error(), "--group cannot be combined with --build-id") {
+		t.Fatalf("expected conflicting filter error, got %q", err.Error())
 	}
 }
 
@@ -4357,6 +4377,65 @@ func TestCreateAppScreenshotSetForCustomProductPageLocalization(t *testing.T) {
 	}
 	if result.Data.ID != "SET_CPP_123" {
 		t.Fatalf("expected set ID SET_CPP_123, got %s", result.Data.ID)
+	}
+}
+
+func TestCreateAppScreenshotSetForExperimentTreatmentLocalization(t *testing.T) {
+	response := jsonResponse(http.StatusCreated, `{"data":{"type":"appScreenshotSets","id":"SET_TREATMENT_123","attributes":{"screenshotDisplayType":"APP_IPHONE_65"}}}`)
+	client := newTestClient(t, func(req *http.Request) {
+		if req.Method != http.MethodPost {
+			t.Fatalf("expected POST, got %s", req.Method)
+		}
+		if req.URL.Path != "/v1/appScreenshotSets" {
+			t.Fatalf("expected path /v1/appScreenshotSets, got %s", req.URL.Path)
+		}
+		assertAuthorized(t, req)
+
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Fatalf("read body error: %v", err)
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Fatalf("decode body error: %v", err)
+		}
+
+		data, ok := payload["data"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected object data payload, got %T", payload["data"])
+		}
+		relationships, ok := data["relationships"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected relationships payload, got %T", data["relationships"])
+		}
+		treatmentRel, ok := relationships["appStoreVersionExperimentTreatmentLocalization"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected appStoreVersionExperimentTreatmentLocalization relationship, got %+v", relationships)
+		}
+		treatmentData, ok := treatmentRel["data"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected appStoreVersionExperimentTreatmentLocalization.data object, got %T", treatmentRel["data"])
+		}
+		if treatmentData["type"] != "appStoreVersionExperimentTreatmentLocalizations" {
+			t.Fatalf("expected relationship type appStoreVersionExperimentTreatmentLocalizations, got %#v", treatmentData["type"])
+		}
+		if treatmentData["id"] != "TREATMENT_LOC_123" {
+			t.Fatalf("expected relationship id TREATMENT_LOC_123, got %#v", treatmentData["id"])
+		}
+		if _, exists := relationships["appStoreVersionLocalization"]; exists {
+			t.Fatalf("expected appStoreVersionLocalization to be omitted for treatment localization")
+		}
+		if _, exists := relationships["appCustomProductPageLocalization"]; exists {
+			t.Fatalf("expected appCustomProductPageLocalization to be omitted for treatment localization")
+		}
+	}, response)
+
+	result, err := client.CreateAppScreenshotSetForExperimentTreatmentLocalization(context.Background(), "TREATMENT_LOC_123", "APP_IPHONE_65")
+	if err != nil {
+		t.Fatalf("CreateAppScreenshotSetForExperimentTreatmentLocalization() error: %v", err)
+	}
+	if result.Data.ID != "SET_TREATMENT_123" {
+		t.Fatalf("expected set ID SET_TREATMENT_123, got %s", result.Data.ID)
 	}
 }
 
@@ -8020,7 +8099,8 @@ func TestClientRenewsMutatingRequestTimeoutAfterLimiterWait(t *testing.T) {
 	release := make(chan struct{})
 	started := make(chan struct{}, 2)
 	var requests atomic.Int32
-	remainingBudget := make(chan time.Duration, 1)
+	derivedDeadlineCh := make(chan time.Time, 1)
+	parentDeadlineCh := make(chan time.Time, 1)
 
 	client := &Client{
 		httpClient: &http.Client{
@@ -8036,7 +8116,7 @@ func TestClientRenewsMutatingRequestTimeoutAfterLimiterWait(t *testing.T) {
 					if !ok {
 						t.Fatal("expected queued mutating request to have a timeout")
 					}
-					remainingBudget <- time.Until(deadline)
+					derivedDeadlineCh <- deadline
 				}
 
 				return jsonResponse(http.StatusCreated, `{"data":{"type":"subscriptionAvailabilities","id":"avail-1","attributes":{"availableInNewTerritories":true}}}`), nil
@@ -8058,6 +8138,12 @@ func TestClientRenewsMutatingRequestTimeoutAfterLimiterWait(t *testing.T) {
 	go func() {
 		requestCtx, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
 		defer cancel()
+		deadline, ok := requestCtx.Deadline()
+		if !ok {
+			errCh <- fmt.Errorf("expected parent mutating request context to have a deadline")
+			return
+		}
+		parentDeadlineCh <- deadline
 
 		_, err := client.CreateSubscriptionAvailability(requestCtx, "sub-2", []string{"CAN"}, SubscriptionAvailabilityAttributes{})
 		errCh <- err
@@ -8077,8 +8163,14 @@ func TestClientRenewsMutatingRequestTimeoutAfterLimiterWait(t *testing.T) {
 		}
 	}
 
-	if budget := <-remainingBudget; budget < 65*time.Millisecond {
-		t.Fatalf("expected queued request to receive a refreshed timeout budget, got %s remaining", budget)
+	parentDeadline := <-parentDeadlineCh
+	derivedDeadline := <-derivedDeadlineCh
+	if !derivedDeadline.After(parentDeadline) {
+		t.Fatalf(
+			"expected queued request to receive a refreshed timeout deadline after %s, got %s",
+			parentDeadline.Format(time.RFC3339Nano),
+			derivedDeadline.Format(time.RFC3339Nano),
+		)
 	}
 
 	if requests.Load() != 2 {

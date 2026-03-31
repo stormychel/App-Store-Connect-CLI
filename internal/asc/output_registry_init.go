@@ -220,6 +220,15 @@ func init() {
 		}
 		return nil
 	})
+	registerDirect(func(v *ExperimentTreatmentLocalizationScreenshotUploadResult, render func([]string, [][]string)) error {
+		h, r := experimentTreatmentLocalizationScreenshotUploadResultMainRows(v)
+		render(h, r)
+		if len(v.Results) > 0 {
+			ih, ir := assetUploadResultItemRows(v.Results)
+			render(ih, ir)
+		}
+		return nil
+	})
 	registerDirect(func(v *CustomProductPagePreviewUploadResult, render func([]string, [][]string)) error {
 		h, r := customProductPagePreviewUploadResultMainRows(v)
 		render(h, r)
