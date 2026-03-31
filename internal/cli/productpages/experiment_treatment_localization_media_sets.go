@@ -14,6 +14,8 @@ import (
 	"github.com/rudrankriyam/App-Store-Connect-CLI/internal/cli/shared"
 )
 
+var experimentTreatmentLocalizationMediaClientFactory = shared.GetASCClient
+
 // ExperimentTreatmentLocalizationPreviewSetsCommand returns the preview sets command group.
 func ExperimentTreatmentLocalizationPreviewSetsCommand() *ffcli.Command {
 	fs := flag.NewFlagSet("preview-sets", flag.ExitOnError)
