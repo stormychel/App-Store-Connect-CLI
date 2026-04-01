@@ -275,98 +275,93 @@ export function useAppSectionData(appSelectionRequestRef: MutableRefObject<numbe
 
   function loadOfferCodesIfNeeded(sectionId: string, appId: string | null) {
     if (sectionId !== "promo-codes" || !appId) return;
+    if (offerCodes.loading || (offerCodes.loadedAppId === appId && !offerCodes.error)) return;
 
-    setOfferCodes((prev) => {
-      if (prev.loading || prev.loadedAppId === appId) return prev;
+    const appRequestID = appSelectionRequestRef.current;
+    const offerRequestID = offerCodesRequestRef.current + 1;
+    offerCodesRequestRef.current = offerRequestID;
 
-      const appRequestID = appSelectionRequestRef.current;
-      const offerRequestID = offerCodesRequestRef.current + 1;
-      offerCodesRequestRef.current = offerRequestID;
+    setOfferCodes({ loading: true, loadedAppId: appId, codes: [] });
 
-      GetOfferCodes(appId)
-        .then((res) => {
-          if (
-            appSelectionRequestRef.current !== appRequestID ||
-            offerCodesRequestRef.current !== offerRequestID
-          ) {
-            return;
-          }
-          if (res.error) {
-            setOfferCodes({ loading: false, loadedAppId: appId, error: res.error, codes: [] });
-            return;
-          }
-          setOfferCodes({ loading: false, loadedAppId: appId, codes: res.offerCodes ?? [] });
-        })
-        .catch((error) => {
-          if (
-            appSelectionRequestRef.current !== appRequestID ||
-            offerCodesRequestRef.current !== offerRequestID
-          ) {
-            return;
-          }
-          setOfferCodes({ loading: false, loadedAppId: appId, error: String(error), codes: [] });
-        });
-
-      return { loading: true, loadedAppId: appId, codes: [] };
-    });
+    GetOfferCodes(appId)
+      .then((res) => {
+        if (
+          appSelectionRequestRef.current !== appRequestID ||
+          offerCodesRequestRef.current !== offerRequestID
+        ) {
+          return;
+        }
+        if (res.error) {
+          setOfferCodes({ loading: false, loadedAppId: appId, error: res.error, codes: [] });
+          return;
+        }
+        setOfferCodes({ loading: false, loadedAppId: appId, codes: res.offerCodes ?? [] });
+      })
+      .catch((error) => {
+        if (
+          appSelectionRequestRef.current !== appRequestID ||
+          offerCodesRequestRef.current !== offerRequestID
+        ) {
+          return;
+        }
+        setOfferCodes({ loading: false, loadedAppId: appId, error: String(error), codes: [] });
+      });
   }
 
   function loadInsightsIfNeeded(sectionId: string, appId: string | null) {
     if (sectionId !== "insights" || !appId) return;
+    const existingInsights = sectionCache.insights;
+    if (existingInsights?.loading || (existingInsights && !existingInsights.error)) return;
 
-    setSectionCache((prev) => {
-      if (prev.insights) return prev;
+    const weekStr = insightsWeekStart(new Date());
+    const appRequestID = appSelectionRequestRef.current;
+    const insightsRequestID = insightsRequestRef.current + 1;
+    insightsRequestRef.current = insightsRequestID;
 
-      const weekStr = insightsWeekStart(new Date());
-      const appRequestID = appSelectionRequestRef.current;
-      const insightsRequestID = insightsRequestRef.current + 1;
-      insightsRequestRef.current = insightsRequestID;
+    setSectionCache((prev) => ({ ...prev, insights: { loading: true, items: [] } }));
 
-      void RunASCCommand(
-        `insights weekly --app ${shellQuote(appId)} --source analytics --week ${weekStr} --output json`,
-      )
-        .then((res) => {
-          if (
-            appSelectionRequestRef.current !== appRequestID ||
-            insightsRequestRef.current !== insightsRequestID
-          ) {
-            return;
-          }
-          if (res.error) {
-            setSectionCache((current) => ({
-              ...current,
-              insights: { loading: false, error: res.error, items: [] },
-            }));
-            return;
-          }
-          try {
-            const parsed = JSON.parse(res.data);
-            setSectionCache((current) => ({
-              ...current,
-              insights: { loading: false, items: (parsed.metrics ?? []).map((metric: Record<string, unknown>) => metric) },
-            }));
-          } catch {
-            setSectionCache((current) => ({
-              ...current,
-              insights: { loading: false, error: "Failed to parse", items: [] },
-            }));
-          }
-        })
-        .catch((error) => {
-          if (
-            appSelectionRequestRef.current !== appRequestID ||
-            insightsRequestRef.current !== insightsRequestID
-          ) {
-            return;
-          }
+    void RunASCCommand(
+      `insights weekly --app ${shellQuote(appId)} --source analytics --week ${weekStr} --output json`,
+    )
+      .then((res) => {
+        if (
+          appSelectionRequestRef.current !== appRequestID ||
+          insightsRequestRef.current !== insightsRequestID
+        ) {
+          return;
+        }
+        if (res.error) {
           setSectionCache((current) => ({
             ...current,
-            insights: { loading: false, error: String(error), items: [] },
+            insights: { loading: false, error: res.error, items: [] },
           }));
-        });
-
-      return { ...prev, insights: { loading: true, items: [] } };
-    });
+          return;
+        }
+        try {
+          const parsed = JSON.parse(res.data);
+          setSectionCache((current) => ({
+            ...current,
+            insights: { loading: false, items: (parsed.metrics ?? []).map((metric: Record<string, unknown>) => metric) },
+          }));
+        } catch {
+          setSectionCache((current) => ({
+            ...current,
+            insights: { loading: false, error: "Failed to parse", items: [] },
+          }));
+        }
+      })
+      .catch((error) => {
+        if (
+          appSelectionRequestRef.current !== appRequestID ||
+          insightsRequestRef.current !== insightsRequestID
+        ) {
+          return;
+        }
+        setSectionCache((current) => ({
+          ...current,
+          insights: { loading: false, error: String(error), items: [] },
+        }));
+      });
   }
 
   return {

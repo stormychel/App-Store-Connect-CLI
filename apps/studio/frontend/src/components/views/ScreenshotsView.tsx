@@ -3,6 +3,7 @@ import { screenshotLabel } from "../../utils";
 
 type ScreenshotsViewProps = {
   screenshotsLoading: boolean;
+  screenshotsError: string;
   screenshotSets: ScreenshotSet[];
   allLocalizations: LocalizationEntry[];
   selectedLocale: string;
@@ -11,6 +12,7 @@ type ScreenshotsViewProps = {
 
 export function ScreenshotsView({
   screenshotsLoading,
+  screenshotsError,
   screenshotSets,
   allLocalizations,
   selectedLocale,
@@ -20,18 +22,20 @@ export function ScreenshotsView({
     <div className="app-detail-view">
       <div className="app-detail-section">
         <h3 className="section-label">Screenshots</h3>
+        {allLocalizations.length > 1 && (
+          <div className="metadata-header" style={{ marginBottom: 12 }}>
+            <span />
+            <select className="locale-picker" value={selectedLocale} onChange={(e) => onLocaleChange(e.target.value)}>
+              {allLocalizations.map((l) => <option key={l.locale} value={l.locale}>{l.locale}</option>)}
+            </select>
+          </div>
+        )}
         {screenshotsLoading ? (
           <p className="empty-hint">Loading…</p>
+        ) : screenshotsError ? (
+          <p className="empty-hint">{screenshotsError}</p>
         ) : screenshotSets.length > 0 ? (
           <>
-            {allLocalizations.length > 1 && (
-              <div className="metadata-header" style={{ marginBottom: 12 }}>
-                <span />
-                <select className="locale-picker" value={selectedLocale} onChange={(e) => onLocaleChange(e.target.value)}>
-                  {allLocalizations.map((l) => <option key={l.locale} value={l.locale}>{l.locale}</option>)}
-                </select>
-              </div>
-            )}
             {screenshotSets.map((set) => {
               const label = screenshotLabel(set.displayType);
               return (

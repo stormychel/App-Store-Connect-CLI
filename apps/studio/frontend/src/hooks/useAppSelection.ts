@@ -36,6 +36,7 @@ export function useAppSelection() {
     metadataLoading: metadata.metadataLoading,
     screenshotSets: metadata.screenshotSets,
     screenshotsLoading: metadata.screenshotsLoading,
+    screenshotsError: metadata.screenshotsError,
     sectionCache: sectionData.sectionCache,
     appStatus: sectionData.appStatus,
     reviews: sectionData.reviews,

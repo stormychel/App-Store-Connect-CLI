@@ -8,6 +8,7 @@ type AppInfoViewProps = {
   allLocalizations: LocalizationEntry[];
   selectedLocale: string;
   screenshotsLoading: boolean;
+  screenshotsError: string;
   screenshotSets: ScreenshotSet[];
   onLocaleChange: (locale: string) => void;
   onRunCommand: (cmd: string) => Promise<{ error?: string; data: string }>;
@@ -20,6 +21,7 @@ export function AppInfoView({
   allLocalizations,
   selectedLocale,
   screenshotsLoading,
+  screenshotsError,
   screenshotSets,
   onLocaleChange,
   onRunCommand,
@@ -110,6 +112,11 @@ export function AppInfoView({
               <div className="metadata-field">
                 <p className="metadata-label">Screenshots</p>
                 <p className="empty-hint" style={{ margin: 0 }}>Loading…</p>
+              </div>
+            ) : screenshotsError ? (
+              <div className="metadata-field">
+                <p className="metadata-label">Screenshots</p>
+                <p className="empty-hint" style={{ margin: 0 }}>{screenshotsError}</p>
               </div>
             ) : screenshotSets.length > 0 ? (
               <div className="metadata-field">

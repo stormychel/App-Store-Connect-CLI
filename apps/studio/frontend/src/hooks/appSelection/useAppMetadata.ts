@@ -10,6 +10,7 @@ export function useAppMetadata(appSelectionRequestRef: MutableRefObject<number>)
   const [metadataLoading, setMetadataLoading] = useState(false);
   const [screenshotSets, setScreenshotSets] = useState<ScreenshotSet[]>([]);
   const [screenshotsLoading, setScreenshotsLoading] = useState(false);
+  const [screenshotsError, setScreenshotsError] = useState("");
 
   const screenshotRequestRef = useRef(0);
 
@@ -21,6 +22,7 @@ export function useAppMetadata(appSelectionRequestRef: MutableRefObject<number>)
     setScreenshotSets([]);
     setMetadataLoading(false);
     setScreenshotsLoading(false);
+    setScreenshotsError("");
   }
 
   function loadScreenshots(localizationId: string, requestID: number, clearCurrent = false) {
@@ -28,6 +30,7 @@ export function useAppMetadata(appSelectionRequestRef: MutableRefObject<number>)
     screenshotRequestRef.current = screenshotRequestID;
 
     setScreenshotsLoading(true);
+    setScreenshotsError("");
     if (clearCurrent) {
       setScreenshotSets([]);
     }
@@ -40,9 +43,23 @@ export function useAppMetadata(appSelectionRequestRef: MutableRefObject<number>)
         ) {
           return;
         }
+        if (res.error) {
+          setScreenshotSets([]);
+          setScreenshotsError(res.error);
+          return;
+        }
         setScreenshotSets(res.sets ?? []);
       })
-      .catch(() => {})
+      .catch((error) => {
+        if (
+          appSelectionRequestRef.current !== requestID ||
+          screenshotRequestRef.current !== screenshotRequestID
+        ) {
+          return;
+        }
+        setScreenshotSets([]);
+        setScreenshotsError(String(error));
+      })
       .finally(() => {
         if (
           appSelectionRequestRef.current !== requestID ||
@@ -129,6 +146,7 @@ export function useAppMetadata(appSelectionRequestRef: MutableRefObject<number>)
     metadataLoading,
     screenshotSets,
     screenshotsLoading,
+    screenshotsError,
     resetSelection,
     loadAppDetail,
     handleLocaleChange,

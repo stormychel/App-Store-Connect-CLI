@@ -159,6 +159,7 @@ export default function App() {
       return (
         <AppInfoView appDetail={app.appDetail} selectedAppId={app.selectedAppId} metadataLoading={app.metadataLoading}
           allLocalizations={app.allLocalizations} selectedLocale={app.selectedLocale} screenshotsLoading={app.screenshotsLoading}
+          screenshotsError={app.screenshotsError}
           screenshotSets={app.screenshotSets} onLocaleChange={app.handleLocaleChange} onRunCommand={RunASCCommand} />
       );
     }
@@ -175,7 +176,8 @@ export default function App() {
     }
     if (activeSection.id === "ratings-reviews" && app.selectedAppId) return <ReviewsView reviews={app.reviews} />;
     if (activeSection.id === "screenshots" && app.selectedAppId) {
-      return <ScreenshotsView screenshotsLoading={app.screenshotsLoading} screenshotSets={app.screenshotSets}
+      return <ScreenshotsView screenshotsLoading={app.screenshotsLoading} screenshotsError={app.screenshotsError}
+        screenshotSets={app.screenshotSets}
         allLocalizations={app.allLocalizations} selectedLocale={app.selectedLocale} onLocaleChange={app.handleLocaleChange} />;
     }
     if (activeSection.id === "feedback" && app.selectedAppId) return <FeedbackView feedbackData={app.feedbackData} />;

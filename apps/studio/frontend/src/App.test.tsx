@@ -312,6 +312,40 @@ describe("App", () => {
     expect(screen.queryByText("General")).not.toBeInTheDocument();
   });
 
+  it("shows screenshot fetch errors instead of an empty state", async () => {
+    mockGetVersionMetadata.mockResolvedValue({
+      localizations: [
+        {
+          localizationId: "loc-1",
+          locale: "en-US",
+          description: "Localized description",
+          keywords: "",
+          whatsNew: "",
+          promotionalText: "",
+          supportUrl: "",
+          marketingUrl: "",
+        },
+      ],
+    });
+    mockGetScreenshots.mockResolvedValue({
+      error: "screenshots unavailable",
+      sets: [],
+    });
+
+    render(<App />);
+
+    await screen.findByRole("img", { name: /Connected/i });
+    await pickApp("Test App");
+
+    expect(await screen.findByText("screenshots unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("No screenshots found. Select an app with screenshots or change locale.")).not.toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Screenshots" }));
+
+    expect(await screen.findByText("screenshots unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("No screenshots found. Select an app with screenshots or change locale.")).not.toBeInTheDocument();
+  });
+
   it("includes required statuses when loading nominations", async () => {
     render(<App />);
 
@@ -475,6 +509,24 @@ describe("App", () => {
       expect(commands).toContain("status --app '1 2' --output json");
       expect(commands).toContain("reviews list --app '1 2' --limit 25 --output json");
     });
+  });
+
+  it("uses only supported app-scoped section commands", async () => {
+    render(<App />);
+
+    await screen.findByRole("img", { name: /Connected/i });
+    await pickApp("Test App");
+
+    await waitFor(() => {
+      expect(mockRunASCCommand).toHaveBeenCalledWith(
+        "encryption declarations list --app '1' --output json",
+      );
+    });
+
+    const commands = mockRunASCCommand.mock.calls.map(([cmd]) => cmd);
+    expect(commands).not.toContain("encryption list --app '1' --output json");
+    expect(commands).not.toContain("localizations preview-sets list --app '1' --output json");
+    expect(sectionCommands["video-previews"]).toBeUndefined();
   });
 
   it("limits app-scoped section prefetch concurrency", async () => {
@@ -916,6 +968,41 @@ describe("App", () => {
     await waitFor(() => {
       expect(mockGetOfferCodes).toHaveBeenCalledWith("1");
     });
+  });
+
+  it("retries offer codes after a failed load", async () => {
+    mockGetOfferCodes
+      .mockResolvedValueOnce({ error: "offer codes unavailable", offerCodes: [] })
+      .mockResolvedValueOnce({
+        offerCodes: [
+          {
+            subscriptionName: "Pro Plan",
+            subscriptionId: "sub-1",
+            name: "Welcome Offer",
+            offerEligibility: "NEW",
+            customerEligibilities: [],
+            duration: "ONE_MONTH",
+            offerMode: "FREE_TRIAL",
+            numberOfPeriods: 1,
+            totalNumberOfCodes: 100,
+            productionCodeCount: 40,
+          },
+        ],
+      });
+
+    render(<App />);
+
+    await screen.findByRole("img", { name: /Connected/i });
+    await pickApp("Test App");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Promo Codes" }));
+    expect(await screen.findByText("offer codes unavailable")).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Builds" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Promo Codes" }));
+
+    expect(await screen.findByText("Welcome Offer")).toBeInTheDocument();
+    expect(mockGetOfferCodes).toHaveBeenCalledTimes(2);
   });
 
   it("ignores stale insights responses after switching apps", async () => {

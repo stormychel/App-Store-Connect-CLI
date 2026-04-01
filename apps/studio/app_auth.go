@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/rudrankriyam/App-Store-Connect-CLI/internal/config"
 )
 
 func (a *App) CheckAuthStatus() (AuthStatus, error) {
@@ -64,27 +64,8 @@ func (a *App) CheckAuthStatus() (AuthStatus, error) {
 // cacheAuthFromConfig reads auth credentials from config once and caches them
 // so that subsequent asc commands don't depend on config.json staying intact.
 func (a *App) cacheAuthFromConfig() {
-	home, err := os.UserHomeDir()
+	cfg, err := config.Load()
 	if err != nil {
-		return
-	}
-	data, err := os.ReadFile(filepath.Join(home, ".asc", "config.json"))
-	if err != nil {
-		return
-	}
-	var cfg struct {
-		KeyID          string `json:"key_id"`
-		IssuerID       string `json:"issuer_id"`
-		PrivateKeyPath string `json:"private_key_path"`
-		DefaultKeyName string `json:"default_key_name"`
-		Keys           []struct {
-			Name           string `json:"name"`
-			KeyID          string `json:"key_id"`
-			IssuerID       string `json:"issuer_id"`
-			PrivateKeyPath string `json:"private_key_path"`
-		} `json:"keys"`
-	}
-	if json.Unmarshal(data, &cfg) != nil {
 		return
 	}
 	// Prefer named key matching default_key_name
