@@ -245,6 +245,7 @@ asc workflow run beta
 {
   "env": {
     "APP_ID": "123456789",
+    "IPA_PATH": "./build/MyApp.ipa",
     "PLATFORM": "IOS"
   },
   "before_all": "echo Starting submission workflow",
@@ -259,17 +260,9 @@ asc workflow run beta
           "run": "asc localizations list --version $VERSION_ID --output json | jq -e '.data | length > 0'"
         },
         {
-          "name": "get_latest_build",
-          "run": "asc builds list --app $APP_ID --sort -uploadedDate --limit 1 --output json > /tmp/build.json"
-        },
-        {
-          "name": "extract_build_id",
-          "run": "BUILD_ID=$(jq -r '.data[0].id' /tmp/build.json) && echo BUILD_ID=$BUILD_ID >> $GITHUB_ENV"
-        },
-        {
           "name": "publish_release",
-          "if": "BUILD_ID",
-          "run": "asc release run --app $APP_ID --version $VERSION --build $BUILD_ID --metadata-dir ./metadata/version/$VERSION --confirm"
+          "if": "IPA_PATH",
+          "run": "asc publish appstore --app $APP_ID --ipa $IPA_PATH --version $VERSION --submit --confirm"
         },
         {
           "name": "check_status",
@@ -367,12 +360,12 @@ asc workflow run release VERSION:1.0.0 VERSION_ID:abc123
       "description": "Run the App Store release pipeline",
       "steps": [
         {
-          "name": "get_build",
-          "run": "BUILD_ID=$(asc builds list --app $APP_ID --sort -uploadedDate --limit 1 --output json | jq -r '.data[0].id') && echo BUILD_ID=$BUILD_ID"
+          "name": "ensure_ipa",
+          "run": "test -f \"$IPA_PATH\""
         },
         {
-          "name": "release_run",
-          "run": "asc release run --app $APP_ID --version $VERSION --build $BUILD_ID --metadata-dir ./metadata/version/$VERSION --confirm"
+          "name": "publish_appstore",
+          "run": "asc publish appstore --app $APP_ID --ipa $IPA_PATH --version $VERSION --submit --confirm"
         }
       ]
     }
