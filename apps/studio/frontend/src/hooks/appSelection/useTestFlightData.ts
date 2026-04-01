@@ -3,35 +3,48 @@ import { useRef, useState, type MutableRefObject } from "react";
 import { GroupTestersState, TestFlightState } from "../../types";
 import { GetTestFlight, GetTestFlightTesters } from "../../../wailsjs/go/main/App";
 
+function emptyTestFlightState(): TestFlightState {
+  return { loading: false, groups: [] };
+}
+
 export function useTestFlightData(appSelectionRequestRef: MutableRefObject<number>) {
-  const [testflightData, setTestflightData] = useState<TestFlightState>({ loading: false, groups: [] });
+  const [testflightData, setTestflightData] = useState<TestFlightState>(emptyTestFlightState());
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [groupTesters, setGroupTesters] = useState<GroupTestersState>({ loading: false, testers: [] });
 
   const groupTesterRequestRef = useRef(0);
 
-  function resetSelection() {
+  function resetGroupSelection() {
     groupTesterRequestRef.current += 1;
     setSelectedGroup(null);
     setGroupTesters({ loading: false, testers: [] });
   }
 
-  function loadGroups(appId: string, requestID: number) {
-    setTestflightData({ loading: true, groups: [] });
-    resetSelection();
+  function resetSelection() {
+    resetGroupSelection();
+    setTestflightData(emptyTestFlightState());
+  }
+
+  function loadGroupsIfNeeded(appId: string, requestID: number, force = false) {
+    if (!force && (testflightData.loading || (testflightData.loadedAppId === appId && !testflightData.error))) {
+      return;
+    }
+
+    resetGroupSelection();
+    setTestflightData({ loading: true, loadedAppId: appId, groups: [] });
 
     GetTestFlight(appId)
       .then((res) => {
         if (appSelectionRequestRef.current !== requestID) return;
         if (res.error) {
-          setTestflightData({ loading: false, error: res.error, groups: [] });
+          setTestflightData({ loading: false, loadedAppId: appId, error: res.error, groups: [] });
           return;
         }
-        setTestflightData({ loading: false, groups: res.groups ?? [] });
+        setTestflightData({ loading: false, loadedAppId: appId, groups: res.groups ?? [] });
       })
       .catch((error) => {
         if (appSelectionRequestRef.current !== requestID) return;
-        setTestflightData({ loading: false, error: String(error), groups: [] });
+        setTestflightData({ loading: false, loadedAppId: appId, error: String(error), groups: [] });
       });
   }
 
@@ -66,7 +79,7 @@ export function useTestFlightData(appSelectionRequestRef: MutableRefObject<numbe
     selectedGroup,
     groupTesters,
     resetSelection,
-    loadGroups,
+    loadGroupsIfNeeded,
     handleSelectGroup,
     handleBackToGroups,
   };

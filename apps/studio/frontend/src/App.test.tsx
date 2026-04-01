@@ -70,9 +70,7 @@ vi.mock("../wailsjs/go/models", () => ({
 }));
 
 import App, { insightsWeekStart } from "./App";
-import { appScopedSectionIDs, sectionCommands } from "./constants";
-import { appSectionPrefetchConcurrency } from "./hooks/appSelection/concurrency";
-import { commandForApp } from "./utils";
+import { sectionCommands } from "./constants";
 
 async function pickApp(name: string) {
   fireEvent.change(screen.getByLabelText("Search apps"), { target: { value: name } });
@@ -290,6 +288,83 @@ describe("App", () => {
     expect(screen.queryByText("com.example.first")).not.toBeInTheDocument();
   });
 
+  it("loads app-scoped data lazily instead of fan-out prefetching on selection", async () => {
+    render(<App />);
+
+    await screen.findByRole("img", { name: /Connected/i });
+    await pickApp("Test App");
+
+    await waitFor(() => {
+      expect(mockGetAppDetail).toHaveBeenCalledWith("1");
+    });
+
+    const commands = mockRunASCCommand.mock.calls.map(([cmd]) => cmd);
+    expect(commands).not.toContain("status --app '1' --output json");
+    expect(commands).not.toContain("reviews list --app '1' --limit 25 --output json");
+    expect(commands).not.toContain("builds list --app '1' --limit 20 --output json");
+    expect(mockGetPricingOverview).not.toHaveBeenCalled();
+    expect(mockGetSubscriptions).not.toHaveBeenCalled();
+    expect(mockGetFinanceRegions).not.toHaveBeenCalled();
+    expect(mockGetFeedback).not.toHaveBeenCalled();
+    expect(mockGetOfferCodes).not.toHaveBeenCalled();
+    expect(mockGetTestFlight).not.toHaveBeenCalled();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Status" }));
+    await waitFor(() => {
+      expect(mockRunASCCommand).toHaveBeenCalledWith("status --app '1' --output json");
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Pricing and Availability" }));
+    await waitFor(() => {
+      expect(mockGetPricingOverview).toHaveBeenCalledWith("1");
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Groups" }));
+    await waitFor(() => {
+      expect(mockGetTestFlight).toHaveBeenCalledWith("1");
+    });
+  });
+
+  it("switches back to overview before loading a different app", async () => {
+    mockListApps.mockResolvedValue({
+      apps: [
+        { id: "1", name: "First App", subtitle: "One" },
+        { id: "2", name: "Second App", subtitle: "Two" },
+      ],
+    });
+    mockGetAppDetail.mockImplementation((appID: string) => Promise.resolve({
+      id: appID,
+      name: appID === "1" ? "First App" : "Second App",
+      subtitle: appID === "1" ? "One" : "Two",
+      bundleId: appID === "1" ? "com.example.first" : "com.example.second",
+      sku: appID === "1" ? "FIRSTSKU" : "SECONDSKU",
+      primaryLocale: "en-US",
+      versions: [{ id: `version-${appID}`, platform: "IOS", version: appID === "1" ? "1.0" : "2.0", state: "READY_FOR_SALE" }],
+    }));
+
+    render(<App />);
+
+    await screen.findByRole("img", { name: /Connected/i });
+    await pickApp("First App");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Insights" }));
+    await waitFor(() => {
+      expect(mockRunASCCommand).toHaveBeenCalledWith(
+        expect.stringContaining("insights weekly --app '1'"),
+      );
+    });
+
+    mockRunASCCommand.mockClear();
+
+    await pickApp("Second App");
+
+    expect(await screen.findByText("com.example.second")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "App Information" })).toHaveAttribute("aria-current", "page");
+    expect(
+      mockRunASCCommand.mock.calls.map(([cmd]) => cmd).filter((cmd) => cmd.includes("insights weekly")),
+    ).toHaveLength(0);
+  });
+
   it("renders an overview error state when app detail loading fails", async () => {
     mockGetAppDetail.mockResolvedValue({
       id: "1",
@@ -387,6 +462,27 @@ describe("App", () => {
     expect(await screen.findByText("General")).toBeInTheDocument();
     expect(screen.getByText("metadata unavailable")).toBeInTheDocument();
     expect(screen.queryByText("Overview unavailable")).not.toBeInTheDocument();
+  });
+
+  it("renders version badges safely when a version state is missing", async () => {
+    mockGetAppDetail.mockResolvedValue({
+      id: "1",
+      name: "Test App",
+      subtitle: "A great app",
+      bundleId: "com.example.test",
+      sku: "TESTSKU",
+      primaryLocale: "en-US",
+      versions: [{ id: "version-1", platform: "IOS", version: "1.0", state: null as unknown as string }],
+    });
+
+    render(<App />);
+
+    await screen.findByRole("img", { name: /Connected/i });
+    await pickApp("Test App");
+
+    expect(await screen.findByText("com.example.test")).toBeInTheDocument();
+    expect(screen.getByText("1.0 Unknown State")).toBeInTheDocument();
+    expect(screen.queryByText("Something went wrong")).not.toBeInTheDocument();
   });
 
   it("includes required statuses when loading nominations", async () => {
@@ -547,6 +643,9 @@ describe("App", () => {
     await screen.findByRole("img", { name: /Connected/i });
     await pickApp("Quoted App");
 
+    fireEvent.click(await screen.findByRole("button", { name: "Status" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Ratings and Reviews" }));
+
     await waitFor(() => {
       const commands = mockRunASCCommand.mock.calls.map(([cmd]) => cmd);
       expect(commands).toContain("status --app '1 2' --output json");
@@ -559,6 +658,7 @@ describe("App", () => {
 
     await screen.findByRole("img", { name: /Connected/i });
     await pickApp("Test App");
+    fireEvent.click(await screen.findByRole("button", { name: "Encryption" }));
 
     await waitFor(() => {
       expect(mockRunASCCommand).toHaveBeenCalledWith(
@@ -570,58 +670,6 @@ describe("App", () => {
     expect(commands).not.toContain("encryption list --app '1' --output json");
     expect(commands).not.toContain("localizations preview-sets list --app '1' --output json");
     expect(sectionCommands["video-previews"]).toBeUndefined();
-  });
-
-  it("limits app-scoped section prefetch concurrency", async () => {
-    const trackedCommands = new Set(
-      appScopedSectionIDs.map((sectionId) => commandForApp(sectionCommands[sectionId], "1")),
-    );
-    const pendingResolvers: Array<() => void> = [];
-    let activePrefetches = 0;
-    let maxActivePrefetches = 0;
-    let seenPrefetches = 0;
-
-    mockRunASCCommand.mockImplementation((cmd: string) => {
-      if (!trackedCommands.has(cmd)) {
-        return Promise.resolve({ error: "", data: "{\"data\":[]}" });
-      }
-
-      seenPrefetches += 1;
-      activePrefetches += 1;
-      maxActivePrefetches = Math.max(maxActivePrefetches, activePrefetches);
-
-      return new Promise((resolve) => {
-        pendingResolvers.push(() => {
-          activePrefetches -= 1;
-          resolve({ error: "", data: "{\"data\":[]}" });
-        });
-      });
-    });
-
-    render(<App />);
-
-    await screen.findByRole("img", { name: /Connected/i });
-    await pickApp("Test App");
-
-    await waitFor(() => {
-      expect(seenPrefetches).toBe(appSectionPrefetchConcurrency);
-    });
-    expect(activePrefetches).toBe(appSectionPrefetchConcurrency);
-    expect(maxActivePrefetches).toBe(appSectionPrefetchConcurrency);
-
-    const batches = Math.ceil(appScopedSectionIDs.length / appSectionPrefetchConcurrency);
-    for (let i = 0; i < batches; i += 1) {
-      const batch = pendingResolvers.splice(0);
-      expect(batch.length).toBeGreaterThan(0);
-      batch.forEach((resolve) => resolve());
-      await Promise.resolve();
-      await Promise.resolve();
-    }
-
-    await waitFor(() => {
-      expect(seenPrefetches).toBe(appScopedSectionIDs.length);
-    });
-    expect(maxActivePrefetches).toBeLessThanOrEqual(appSectionPrefetchConcurrency);
   });
 
   it("sorts bundle IDs by platform from the header control", async () => {

@@ -6,33 +6,30 @@ import { useTestFlightData } from "./appSelection/useTestFlightData";
 
 export function useAppSelection() {
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
+  const [selectionVersion, setSelectionVersion] = useState(0);
 
   const appSelectionRequestRef = useRef(0);
   const metadata = useAppMetadata(appSelectionRequestRef);
   const sectionData = useAppSectionData(appSelectionRequestRef);
   const testFlight = useTestFlightData(appSelectionRequestRef);
 
-  function handleSelectApp(id: string, activeSectionId?: string) {
+  function handleSelectApp(id: string) {
     const requestID = appSelectionRequestRef.current + 1;
     appSelectionRequestRef.current = requestID;
 
     startTransition(() => {
+      setSelectionVersion(requestID);
       setSelectedAppId(id);
       metadata.resetSelection();
       sectionData.resetSelection();
       testFlight.resetSelection();
     });
 
-    sectionData.prefetchSections(id, requestID);
-    testFlight.loadGroups(id, requestID);
     metadata.loadAppDetail(id, requestID);
-    if (activeSectionId) {
-      sectionData.loadOfferCodesIfNeeded(activeSectionId, id, true);
-      sectionData.loadInsightsIfNeeded(activeSectionId, id, true);
-    }
   }
 
   return {
+    selectionVersion,
     selectedAppId,
     appDetail: metadata.appDetail,
     allLocalizations: metadata.allLocalizations,
@@ -59,8 +56,11 @@ export function useAppSelection() {
     handleLocaleChange: metadata.handleLocaleChange,
     handleSelectGroup: testFlight.handleSelectGroup,
     handleBackToGroups: testFlight.handleBackToGroups,
+    loadAppSectionIfNeeded: sectionData.loadAppSectionIfNeeded,
     loadStandaloneSection: sectionData.loadStandaloneSection,
     loadStandaloneSectionIfNeeded: sectionData.loadStandaloneSectionIfNeeded,
+    loadTestFlightIfNeeded: (appId: string, force = false) =>
+      testFlight.loadGroupsIfNeeded(appId, appSelectionRequestRef.current, force),
     loadOfferCodesIfNeeded: sectionData.loadOfferCodesIfNeeded,
     loadInsightsIfNeeded: sectionData.loadInsightsIfNeeded,
   };

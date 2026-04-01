@@ -1,6 +1,16 @@
 import { allSections, scopes } from "../constants";
 import { AppDetail, AppListItem, NavSection } from "../types";
 
+function formatVersionState(state?: string | null) {
+  if (!state) return "Unknown State";
+  return state.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function versionStateClassName(state?: string | null) {
+  if (!state) return "unknown";
+  return state.toLowerCase().replace(/_/g, "-");
+}
+
 type SidebarProps = {
   activeScope: string;
   selectedAppId: string | null;
@@ -58,10 +68,7 @@ export function Sidebar({
                   role="option"
                   aria-selected={selectedAppId === app.id}
                   className={`app-picker-item ${selectedAppId === app.id ? "is-active" : ""}`}
-                  onClick={() => {
-                    onSelectApp(app.id);
-                    onSetActiveSection(allSections[0]);
-                  }}
+                  onClick={() => onSelectApp(app.id)}
                 >
                   <span className="app-picker-item-name">{app.name}</span>
                   {app.subtitle && <span className="app-picker-item-subtitle">{app.subtitle}</span>}
@@ -86,13 +93,13 @@ export function Sidebar({
             const v = appDetail.versions.find((ver) => ver.platform === platform);
             if (!v) return null;
             const label = platform === "IOS" ? "iOS App" : platform === "MAC_OS" ? "macOS App" : "visionOS App";
-            const stateLabel = v.state.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+            const stateLabel = formatVersionState(v.state);
             return (
               <div key={platform} className="sidebar-version-group">
                 <p className="sidebar-version-platform">{label}</p>
                 <div className="sidebar-version-row">
                   <span
-                    className={`sidebar-version-dot state-${v.state.toLowerCase().replace(/_/g, "-")}`}
+                    className={`sidebar-version-dot state-${versionStateClassName(v.state)}`}
                     role="img"
                     aria-label={stateLabel}
                   />

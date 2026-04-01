@@ -62,7 +62,7 @@ export type AppDetail = {
   bundleId: string;
   sku: string;
   primaryLocale: string;
-  versions: { id: string; platform: string; version: string; state: string }[];
+  versions: { id: string; platform: string; version: string; state?: string | null }[];
   error?: string;
 };
 
@@ -96,6 +96,7 @@ export type SectionCacheEntry = {
 
 export type AppStatusState = {
   loading: boolean;
+  loadedAppId?: string;
   error?: string;
   data: AppStatusData | null;
 };
@@ -112,6 +113,7 @@ export type TestFlightGroup = {
 
 export type TestFlightState = {
   loading: boolean;
+  loadedAppId?: string;
   error?: string;
   groups: TestFlightGroup[];
 };
@@ -141,6 +143,7 @@ export type ReviewItem = {
 
 export type ReviewsState = {
   loading: boolean;
+  loadedAppId?: string;
   error?: string;
   items: ReviewItem[];
 };
@@ -158,6 +161,7 @@ export type SubscriptionItem = {
 
 export type SubscriptionsState = {
   loading: boolean;
+  loadedAppId?: string;
   error?: string;
   items: SubscriptionItem[];
 };
@@ -181,6 +185,7 @@ export type SubscriptionPricingEntry = {
 
 export type PricingOverviewState = {
   loading: boolean;
+  loadedAppId?: string;
   error?: string;
   availableInNewTerritories: boolean;
   currentPrice: string;
@@ -199,6 +204,7 @@ export type FinanceRegion = {
 
 export type FinanceRegionsState = {
   loading: boolean;
+  loadedAppId?: string;
   error?: string;
   regions: FinanceRegion[];
 };
@@ -241,6 +247,7 @@ export type FeedbackItem = {
 
 export type FeedbackState = {
   loading: boolean;
+  loadedAppId?: string;
   error?: string;
   total: number;
   items: FeedbackItem[];
