@@ -1,6 +1,6 @@
 # release
 
-> High-level App Store release workflows for staging and compatibility pipelines
+> High-level App Store release staging workflows
 
 The `release` command handles pre-submit App Store release staging.
 
@@ -8,7 +8,7 @@ Use these paths deliberately:
 
 * `asc release stage` - deterministic pre-submit staging without submission
 * `asc publish appstore --submit` - canonical App Store upload + submit flow
-* Deprecated compatibility pipeline: `release run`
+* [Migrate to 1.0](/migrate-to-1-0) if older automation still references `release run`
 
 ## Usage
 
@@ -61,20 +61,13 @@ asc release stage \
 * `--platform` - Platform: `IOS`, `MAC_OS`, `TV_OS`, `VISION_OS`
 * `--timeout` - Maximum time to run the staging pipeline
 
-### Deprecated Compatibility Pipeline
+### 1.0 migration note
 
-The deprecated `release run` subcommand still performs the old one-command
-metadata-aware release flow:
-
-1. Ensure or create the version
-2. Apply metadata/localizations
-3. Attach a selected build
-4. Run readiness checks
-5. Submit for review
+The old `release run` compatibility pipeline was removed in 1.0.
 
 Prefer:
 
-* `asc release stage` plus `asc review submissions-create`, `asc review items-add`, and `asc review submissions-submit` when you need the older metadata-dir workflow
+* `asc release stage` when you want deterministic pre-submit preparation
 * `asc publish appstore --submit` for the canonical App Store upload + submit path
 
 ## Related Flows

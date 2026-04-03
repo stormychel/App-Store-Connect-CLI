@@ -59,7 +59,7 @@ func TestWarnAppInfoSetSubmitIncompleteLocaleMentionsCanonicalPublishFlow(t *tes
 	if !strings.Contains(stderr, "`asc publish appstore --submit`") {
 		t.Fatalf("expected canonical publish guidance in warning, got %q", stderr)
 	}
-	if !strings.Contains(stderr, "deprecated compatibility pipeline `asc release run`") {
-		t.Fatalf("expected deprecated compatibility pipeline note in warning, got %q", stderr)
+	if strings.Contains(stderr, "release run") {
+		t.Fatalf("expected warning to avoid removed compatibility guidance, got %q", stderr)
 	}
 }

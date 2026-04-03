@@ -168,7 +168,7 @@ case $EXIT_CODE in
     ;;
   4)
     echo "App not found, creating..."
-    asc apps create --name "My App" --bundle-id "com.example.app"
+    asc web apps create --name "My App" --bundle-id "com.example.app" --sku "MYAPP123" --apple-id "$APPLE_ID"
     ;;
   3)
     echo "Authentication failed. Check ASC_KEY_ID and ASC_ISSUER_ID."

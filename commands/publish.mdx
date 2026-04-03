@@ -19,8 +19,9 @@ Use these top-level workflows deliberately:
 * `asc publish appstore` - canonical high-level App Store publish path
 * `asc release stage` - prepare an App Store version without submitting it
 
-`asc release run` remains available as a deprecated compatibility pipeline for
-older automation that still expects one command to stage and submit a release.
+In 1.0, the deprecated `asc release run` path was removed. Use
+[Migrate to 1.0](/migrate-to-1-0) if you still have older automation that
+expects a single deprecated release command.
 
 ## Workflows
 
@@ -84,14 +85,11 @@ This workflow:
   Default: `true`
 </ParamField>
 
-## Deprecated release compatibility path
+## 1.0 migration note
 
-If you still maintain older automation that depends on the metadata-aware
-one-command release pipeline, the old `release run` command remains available as a
-deprecated compatibility path.
-
-Prefer migrating day-to-day App Store shipping to the canonical `publish
-appstore` flow and using `release stage` for pre-submit preparation work.
+If older automation still invokes the deprecated `asc release run`, replace it with
+`asc publish appstore --submit --confirm` for end-to-end shipping or
+`asc release stage` for pre-submit preparation work.
 
 ## Example workflows
 
@@ -164,7 +162,7 @@ asc builds add-groups --build-id BUILD_ID --group "External Testers"
   </Card>
 
   <Card title="Release command" icon="rocket" href="/commands/release">
-    Pre-submit release staging and deprecated compatibility pipeline
+    Pre-submit release staging
   </Card>
 
   <Card title="Automation guide" icon="robot" href="/guides/automation">

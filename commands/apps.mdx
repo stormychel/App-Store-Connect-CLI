@@ -1,13 +1,14 @@
 # Apps
 
-> List, create, and manage apps in App Store Connect
+> List and manage apps in App Store Connect
 
 ## Overview
 
 The `apps` command is the main app-management surface for App Store Connect.
 
-`asc apps create` still exists as a deprecated compatibility shim, but the
-canonical web-session app-creation path is `asc web apps create`.
+App creation no longer lives under `asc apps` in 1.0. Use `asc web apps create`
+for the unofficial web-session creation flow, and see the
+[Migrate to 1.0](/migrate-to-1-0) guide if you are updating older scripts.
 
 ## Commands
 
@@ -122,80 +123,6 @@ asc apps view --id "APP_ID" --output table
 
 ***
 
-### `asc apps create`
-
-Create a new app through the deprecated compatibility shim.
-
-<Note>
-  `asc apps create` is deprecated. Prefer `asc web apps create`, which is the
-  canonical unofficial web-session app-creation path and supports the newer
-  bundle-ID preflight behavior.
-</Note>
-
-<ParamField path="--name" type="string" required>
-  App name
-</ParamField>
-
-<ParamField path="--bundle-id" type="string" required>
-  Bundle ID (e.g., com.example.app)
-</ParamField>
-
-<ParamField path="--sku" type="string" required>
-  Unique SKU for the app
-</ParamField>
-
-<ParamField path="--primary-locale" type="string" default="en-US">
-  Primary locale (e.g., en-US, en-GB, de-DE)
-</ParamField>
-
-<ParamField path="--platform" type="string" default="IOS">
-  Platform: `IOS`, `MAC_OS`, `UNIVERSAL`
-</ParamField>
-
-<ParamField path="--apple-id" type="string">
-  Apple ID (email) for authentication
-</ParamField>
-
-<ParamField path="--password" type="string">
-  Apple ID password (will prompt if not provided)
-</ParamField>
-
-<ParamField path="--two-factor-code" type="string">
-  2FA verification code (if prompted)
-</ParamField>
-
-<ParamField path="--auto-rename" type="boolean" default="true">
-  Auto-retry with a unique app name when the chosen name is already in use
-</ParamField>
-
-**Examples:**
-
-```bash  theme={null}
-asc web apps create
-asc web apps create --name "My App" --bundle-id "com.example.myapp" --sku "MYAPP123"
-asc apps create --name "My App" --bundle-id "com.example.myapp" --sku "MYAPP123"
-asc apps create --apple-id "user@example.com" --password "APP_SPECIFIC_PASSWORD"
-```
-
-**Response:**
-
-```json  theme={null}
-{
-  "data": {
-    "id": "NEW_APP_ID",
-    "type": "apps",
-    "attributes": {
-      "name": "My App",
-      "bundleId": "com.example.myapp",
-      "sku": "MYAPP123",
-      "primaryLocale": "en-US"
-    }
-  }
-}
-```
-
-***
-
 ### `asc apps update`
 
 Update an app's bundle ID, primary locale, or content rights declaration.
@@ -279,10 +206,10 @@ surface before scripting against a specific app workflow.
 asc apps list --bundle-id "com.example.app" --output table
 ```
 
-### Create an app with minimal flags
+### Create an app with the web flow
 
 ```bash  theme={null}
-asc apps create --name "My App" --bundle-id "com.example.myapp" --sku "MYAPP123"
+asc web apps create --name "My App" --bundle-id "com.example.myapp" --sku "MYAPP123" --apple-id "user@example.com"
 ```
 
 ### View app details

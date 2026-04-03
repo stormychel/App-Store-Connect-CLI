@@ -62,10 +62,10 @@ Examples:
   asc apps --next "<links.next>"
   asc apps --paginate`,
 		FlagSet:   fs,
-		UsageFunc: shared.DefaultUsageFunc,
+		UsageFunc: shared.VisibleUsageFunc,
 		Subcommands: []*ffcli.Command{
 			AppsListCommand(),
-			AppsCreateCommand(),
+			RemovedAppsCreateCommand(),
 			AppsWallCommand(),
 			AppsPublicCommand(),
 			AppsGetCommand(),
@@ -86,6 +86,18 @@ Examples:
 			return appsList(ctx, *output.Output, *output.Pretty, *bundleID, *name, *sku, *sort, *limit, *next, *paginate)
 		},
 	}
+}
+
+func RemovedAppsCreateCommand() *ffcli.Command {
+	cmd := AppsCreateCommand()
+	cmd.ShortHelp = "DEPRECATED: removed; use `asc web apps create`."
+	cmd.LongHelp = "Removed legacy command. Use `asc web apps create` instead."
+	cmd.UsageFunc = shared.DeprecatedUsageFunc
+	cmd.Exec = func(ctx context.Context, args []string) error {
+		fmt.Fprintln(os.Stderr, "Error: `asc apps create` was removed. Use `asc web apps create` instead.")
+		return flag.ErrHelp
+	}
+	return cmd
 }
 
 // AppsListCommand returns the apps list subcommand.

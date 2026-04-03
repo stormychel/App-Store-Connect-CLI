@@ -54,11 +54,6 @@ Examples:
 			IAPContentCommand(),
 			IAPOfferCodesCommand(),
 			IAPSubmitCommand(),
-			DeprecatedIAPPricesAliasCommand(),
-			DeprecatedIAPPricePointsAliasCommand(),
-			DeprecatedIAPPriceSchedulesAliasCommand(),
-			DeprecatedIAPAvailabilityAliasCommand(),
-			DeprecatedIAPAvailabilitiesAliasCommand(),
 		},
 		Exec: func(ctx context.Context, args []string) error {
 			return flag.ErrHelp

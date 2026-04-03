@@ -87,14 +87,6 @@ asc publish appstore --app "APP_ID" --ipa "./App.ipa" --version "1.0.0" --submit
 asc status --app "APP_ID" --watch
 ```
 
-`asc release run` remains available as a deprecated compatibility pipeline when
-you still want the older one-command stage + submit flow:
-
-```bash
-asc release run --app "APP_ID" --version "1.0.0" --build "BUILD_ID" --metadata-dir "./metadata/version/1.0.0" --dry-run
-asc release run --app "APP_ID" --version "1.0.0" --build "BUILD_ID" --metadata-dir "./metadata/version/1.0.0" --confirm
-```
-
 Canonical readiness and lower-level submission lifecycle commands remain available for debugging or partial workflows:
 
 ```bash
@@ -102,9 +94,6 @@ asc validate --app "APP_ID" --version "1.0.0"
 asc submit status --version-id "VERSION_ID"
 asc submit cancel --version-id "VERSION_ID" --confirm
 ```
-
-`asc submit preflight` remains available as a deprecated compatibility wrapper
-for older scripts that still expect the legacy preflight text/json output.
 
 ### Distribute to TestFlight Group
 
@@ -148,7 +137,7 @@ Use `asc <command> --help` for subcommands and flags.
 - `analytics` - Request and download analytics and sales reports.
 - `performance` - Access performance metrics and diagnostic logs.
 - `finance` - Download payments and financial reports.
-- `apps` - List and manage apps in App Store Connect. `asc apps create` is a deprecated compatibility shim; use `asc web apps create` for new app creation.
+- `apps` - List and manage apps in App Store Connect. App creation moved out of `asc apps`; use `asc web apps create` for the unofficial web-session path.
 - `app-clips` - Manage App Clip experiences and invocations.
 - `android-ios-mapping` - Manage Android-to-iOS app mapping details.
 - `app-setup` - Post-create app setup automation.

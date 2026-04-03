@@ -16,12 +16,9 @@ Use these surfaces deliberately:
 * `asc submit status` - inspect submission or version review state
 * `asc submit cancel` - cancel an active submission
 
-`asc submit preflight` remains available only as a deprecated compatibility path
-for older scripts that still expect preflight-style text/json output.
-
-`asc submit create` remains available only as a deprecated compatibility path
-for older automation that already prepared the version and only needs the final
-review-submission step.
+In 1.0, the deprecated `asc submit preflight` and deprecated `asc submit create`
+paths were removed. Use the
+[Migrate to 1.0](/migrate-to-1-0) guide if you are updating older scripts.
 
 ## Prerequisites
 
@@ -166,7 +163,8 @@ asc validate --app "YOUR_APP_ID" --version "1.0.0"
     asc versions view --version-id "VERSION_ID" --output json
     ```
 
-    `asc versions view` is the canonical command here. The older deprecated `asc versions get` form remains available as a compatibility alias.
+    `asc versions view` is the canonical command here. If older scripts still
+    use the deprecated `asc versions get`, update them during your 1.0 migration.
 
     The version state indicates the current stage:
 

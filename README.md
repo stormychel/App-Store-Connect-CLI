@@ -219,15 +219,11 @@ asc status --app "123456789" --watch
 Lower-level submission lifecycle commands (for debugging or partial workflows):
 
 ```bash
-# Canonical readiness check (preferred over deprecated `asc submit preflight`)
+# Canonical readiness check
 asc validate --app "123456789" --version "1.2.3"
-asc submit preflight --app "123456789" --version "1.2.3"
 asc submit status --version-id "VERSION_ID"
 asc submit cancel --version-id "VERSION_ID" --confirm
 ```
-
-`asc release run` remains available as a deprecated compatibility pipeline when
-you still want the older one-command stage + submit behavior.
 
 ### Review status and blockers
 

@@ -49,9 +49,7 @@ Examples:
 			AppTagsUpdateCommand(),
 			AppTagsTerritoriesCommand(),
 			AppTagsTerritoriesRelationshipsCommand(),
-			DeprecatedAppTagsTerritoriesRelationshipsAliasCommand(),
 			AppTagsRelationshipsCommand(),
-			DeprecatedAppTagsRelationshipsAliasCommand(),
 		},
 		Exec: func(ctx context.Context, args []string) error {
 			return flag.ErrHelp

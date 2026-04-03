@@ -99,21 +99,7 @@ Examples:
 			WinBackOffersDeleteCommand(),
 			WinBackOffersPricesCommand(),
 			WinBackOffersPricesRelationshipsCommand(),
-			shared.DeprecatedAliasLeafCommand(
-				WinBackOffersPricesRelationshipsCommand(),
-				"prices-relationships",
-				"asc win-back-offers prices-links --id OFFER_ID [flags]",
-				"asc win-back-offers prices-links",
-				"Warning: `asc win-back-offers prices-relationships` is deprecated. Use `asc win-back-offers prices-links`.",
-			),
 			WinBackOffersRelationshipsCommand(),
-			shared.DeprecatedAliasLeafCommand(
-				WinBackOffersRelationshipsCommand(),
-				"relationships",
-				"asc win-back-offers links --subscription-id SUB_ID [flags]",
-				"asc win-back-offers links",
-				"Warning: `asc win-back-offers relationships` is deprecated. Use `asc win-back-offers links`.",
-			),
 		},
 		Exec: func(ctx context.Context, args []string) error {
 			return flag.ErrHelp

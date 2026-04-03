@@ -20,12 +20,8 @@ Use these commands deliberately:
 * `asc submit status` - inspect submission or version review state
 * `asc submit cancel` - cancel an active submission
 
-`asc submit preflight` remains available only as a deprecated compatibility path
-for older scripts that still expect preflight-style text/json output.
-
-`asc submit create` remains available only as a deprecated compatibility path
-for older automation that already prepared the version and only needs the final
-submission step.
+In 1.0, the old `submit preflight` and `submit create` compatibility commands
+were removed. See [Migrate to 1.0](/migrate-to-1-0) for upgrade mappings.
 
 ## Submission lifecycle
 
@@ -70,15 +66,11 @@ asc publish appstore \
 That flow uploads the IPA, finds or creates the matching version, attaches the
 build, and submits for review when `--submit` is present.
 
-## Deprecated direct submission path
+## 1.0 migration note
 
-If you still maintain older automation that already prepared the version, the
-deprecated compatibility path remains available through the hidden
-`submit create` alias for older scripts that only need the final review
-submission step.
-
-Prefer migrating that workflow to the canonical `publish appstore` flow or the
-explicit review submission subcommands.
+If older automation still invokes the deprecated `asc submit preflight`,
+migrate it to `asc validate`. If it still invokes the deprecated `asc submit create`,
+migrate it to `asc publish appstore --submit --confirm`.
 
 ## Common errors
 

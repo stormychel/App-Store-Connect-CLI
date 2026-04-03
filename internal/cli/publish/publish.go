@@ -33,10 +33,6 @@ Use:
   - asc publish appstore for the canonical App Store upload + submit flow
   - asc release stage to prepare an App Store version without submitting it
 
-` + "`asc release run`" + ` remains available as a deprecated compatibility
-pipeline for older automation that still expects one command to stage and
-submit a release.
-
 Examples:
   asc publish testflight --app APP_ID --ipa app.ipa --group GROUP_ID
   asc publish appstore --app APP_ID --ipa app.ipa --version 1.2.3 --submit --confirm`,
@@ -389,9 +385,7 @@ Workflow:
 
 Use ` + "`asc release stage`" + ` when you want metadata-driven preparation without
 submission. Use ` + "`asc validate`" + ` to run readiness checks before you add
-` + "`--submit`" + `. Use the deprecated ` + "`asc release run`" + ` compatibility
-pipeline only for older automation that still expects a single stage+submit
-command with ` + "`--metadata-dir`" + `.
+` + "`--submit`" + `.
 
 Examples:
   asc publish appstore --app "123" --ipa app.ipa --version 1.2.3

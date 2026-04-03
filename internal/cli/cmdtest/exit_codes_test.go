@@ -278,9 +278,9 @@ func TestRun_UsageValidationErrorsReturnExitUsage(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name:    "submit create conflicting version flags",
-			args:    []string{"submit", "create", "--version", "1.0", "--version-id", "V123", "--build", "B1", "--confirm"},
-			wantErr: "--version and --version-id are mutually exclusive",
+			name:    "submit status conflicting selectors",
+			args:    []string{"submit", "status", "--id", "SUB_123", "--version-id", "V123"},
+			wantErr: "--id and --version-id are mutually exclusive",
 		},
 		{
 			name: "auth login mutually exclusive validation flags",

@@ -219,6 +219,18 @@ Examples:
 	}
 }
 
+func RemovedReleaseRunCommand() *ffcli.Command {
+	cmd := ReleaseRunCommand()
+	cmd.ShortHelp = "DEPRECATED: removed; use `asc release stage`."
+	cmd.LongHelp = "Removed legacy command. Use `asc release stage` instead."
+	cmd.UsageFunc = shared.DeprecatedUsageFunc
+	cmd.Exec = func(ctx context.Context, args []string) error {
+		fmt.Fprintln(os.Stderr, "Error: `asc release run` was removed. Use `asc release stage` instead.")
+		return flag.ErrHelp
+	}
+	return cmd
+}
+
 func executeRun(ctx context.Context, opts runOptions) (runResult, error) {
 	opts.Mode = releaseModeRun
 	opts.SubmitForReview = true
