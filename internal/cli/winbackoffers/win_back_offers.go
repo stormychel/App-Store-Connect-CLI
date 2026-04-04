@@ -727,7 +727,7 @@ Examples:
 			}
 			territoryFilter, err := shared.NormalizeASCTerritoryCSV(*territories)
 			if err != nil {
-				return fmt.Errorf("win-back-offers prices: %w", err)
+				return shared.UsageError(err.Error())
 			}
 			if len(territoryFieldsValue) > 0 && !shared.HasInclude(includeValue, "territory") {
 				fmt.Fprintln(os.Stderr, "Error: --territory-fields requires --include territory")
