@@ -238,7 +238,7 @@ Examples:
 				}
 			}
 
-			uploaded, err := uploadVersionLocalizations(requestCtx, client, resolvedVersionID, localizations, localeToID)
+			uploaded, warnings, err := uploadVersionLocalizations(requestCtx, client, resolvedVersionID, localizations, localeToID)
 			if err != nil {
 				return err
 			}
@@ -260,7 +260,10 @@ Examples:
 			result.ReviewInfoResult = reviewResult
 			result.ScreenshotResults = screenshotResults
 
-			return printMigrateOutput(result, *output.Output, *output.Pretty)
+			if err := printMigrateOutput(result, *output.Output, *output.Pretty); err != nil {
+				return err
+			}
+			return shared.PrintSubmitReadinessCreateWarnings(os.Stderr, warnings)
 		},
 	}
 }
