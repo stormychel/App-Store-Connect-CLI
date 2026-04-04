@@ -157,7 +157,7 @@ Notes:
 			if len(args) > 0 {
 				return shared.UsageError(fmt.Sprintf("metadata %s does not accept positional arguments", cfg.name))
 			}
-			result, err := ExecutePush(ctx, PushExecutionOptions{
+			result, warnings, err := ExecutePushWithWarnings(ctx, PushExecutionOptions{
 				CommandName:  cfg.name,
 				AppID:        *appID,
 				AppInfoID:    *appInfoID,
@@ -172,13 +172,16 @@ Notes:
 			if err != nil {
 				return err
 			}
-			return shared.PrintOutputWithRenderers(
+			if err := shared.PrintOutputWithRenderers(
 				result,
 				*output.Output,
 				*output.Pretty,
 				func() error { return printPushPlanTable(result) },
 				func() error { return printPushPlanMarkdown(result) },
-			)
+			); err != nil {
+				return err
+			}
+			return shared.PrintSubmitReadinessCreateWarnings(os.Stderr, warnings)
 		},
 	}
 }
