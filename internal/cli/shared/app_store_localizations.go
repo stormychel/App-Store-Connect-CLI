@@ -127,11 +127,6 @@ func AppStoreLocalizationCatalog() []AppStoreLocalizationLocale {
 	return slices.Clone(appStoreLocalizationCatalog)
 }
 
-// SupportedAppStoreLocalizationLocales returns all known supported App Store localization locales.
-func SupportedAppStoreLocalizationLocales() []string {
-	return slices.Clone(supportedAppStoreLocalizationLocales)
-}
-
 // SupportedMetadataLocales returns the metadata-compatible subset of the shared App Store localization catalog.
 func SupportedMetadataLocales() []string {
 	return slices.Clone(supportedMetadataLocales)
@@ -150,9 +145,7 @@ func NormalizeAppStoreLocalizationLocale(value string) (string, error) {
 	return normalized, nil
 }
 
-// CanonicalizeAppStoreLocalizationLocale validates locale syntax and requires the locale
-// to be present in the shared App Store localization catalog.
-func CanonicalizeAppStoreLocalizationLocale(value string) (string, error) {
+func canonicalizeAppStoreLocalizationLocale(value string) (string, error) {
 	normalized, err := NormalizeAppStoreLocalizationLocale(value)
 	if err != nil {
 		return "", err

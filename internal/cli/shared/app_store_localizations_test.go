@@ -6,15 +6,15 @@ import (
 	"testing"
 )
 
-func TestSupportedAppStoreLocalizationLocalesIncludesCurrentHelpAndLiveLocales(t *testing.T) {
-	locales := SupportedAppStoreLocalizationLocales()
+func TestAppStoreLocalizationCatalogIncludesCurrentHelpAndLiveLocales(t *testing.T) {
+	locales := AppStoreLocalizationCatalog()
 
 	if len(locales) != 50 {
 		t.Fatalf("expected 50 supported locales, got %d", len(locales))
 	}
 
 	for _, want := range []string{"en-US", "bn-BD", "sl-SI", "ur-PK"} {
-		if !slices.Contains(locales, want) {
+		if !slices.ContainsFunc(locales, func(locale AppStoreLocalizationLocale) bool { return locale.Code == want }) {
 			t.Fatalf("expected supported locales to include %q, got %v", want, locales)
 		}
 	}
@@ -49,9 +49,9 @@ func TestCanonicalizeAppStoreLocalizationLocale(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {
-			got, err := CanonicalizeAppStoreLocalizationLocale(test.input)
+			got, err := canonicalizeAppStoreLocalizationLocale(test.input)
 			if err != nil {
-				t.Fatalf("CanonicalizeAppStoreLocalizationLocale() error: %v", err)
+				t.Fatalf("canonicalizeAppStoreLocalizationLocale() error: %v", err)
 			}
 			if got != test.want {
 				t.Fatalf("expected %q, got %q", test.want, got)
@@ -61,7 +61,7 @@ func TestCanonicalizeAppStoreLocalizationLocale(t *testing.T) {
 }
 
 func TestCanonicalizeAppStoreLocalizationLocaleRejectsUnsupportedLocale(t *testing.T) {
-	_, err := CanonicalizeAppStoreLocalizationLocale("en-IN")
+	_, err := canonicalizeAppStoreLocalizationLocale("en-IN")
 	if err == nil {
 		t.Fatal("expected unsupported locale error")
 	}
