@@ -974,6 +974,122 @@ func TestMetadataPushApplyExecutesUpdates(t *testing.T) {
 	}
 }
 
+func TestMetadataPushApplyWarnsForIncompleteCreate(t *testing.T) {
+	setupAuth(t)
+	t.Setenv("ASC_CONFIG_PATH", filepath.Join(t.TempDir(), "nonexistent.json"))
+	t.Setenv("ASC_APP_ID", "")
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "version", "1.2.3"), 0o755); err != nil {
+		t.Fatalf("mkdir version: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "version", "1.2.3", "ja.json"), []byte(`{"description":"日本語説明"}`), 0o644); err != nil {
+		t.Fatalf("write version ja file: %v", err)
+	}
+
+	originalTransport := http.DefaultTransport
+	t.Cleanup(func() {
+		http.DefaultTransport = originalTransport
+	})
+
+	createCount := 0
+	http.DefaultTransport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/v1/apps/app-1/appInfos":
+			body := `{"data":[{"type":"appInfos","id":"appinfo-1","attributes":{"state":"PREPARE_FOR_SUBMISSION"}}]}`
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+			}, nil
+		case "/v1/apps/app-1/appStoreVersions":
+			body := `{"data":[{"type":"appStoreVersions","id":"version-1","attributes":{"versionString":"1.2.3","platform":"IOS"}}],"links":{"next":""}}`
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+			}, nil
+		case "/v1/appInfos/appinfo-1/appInfoLocalizations":
+			if req.Method == http.MethodGet {
+				body := `{"data":[],"links":{"next":""}}`
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(body)),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+				}, nil
+			}
+		case "/v1/appStoreVersions/version-1/appStoreVersionLocalizations":
+			if req.Method == http.MethodGet {
+				body := `{"data":[],"links":{"next":""}}`
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(body)),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+				}, nil
+			}
+		case "/v1/appStoreVersionLocalizations":
+			if req.Method == http.MethodPost {
+				createCount++
+				body := `{"data":{"type":"appStoreVersionLocalizations","id":"loc-ver-ja","attributes":{"locale":"ja","description":"日本語説明"}}}`
+				return &http.Response{
+					StatusCode: http.StatusCreated,
+					Body:       io.NopCloser(strings.NewReader(body)),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+				}, nil
+			}
+		}
+		t.Fatalf("unexpected request: %s %s", req.Method, req.URL.Path)
+		return nil, nil
+	})
+
+	root := RootCommand("1.2.3")
+	root.FlagSet.SetOutput(io.Discard)
+
+	stdout, stderr := captureOutput(t, func() {
+		if err := root.Parse([]string{
+			"metadata", "push",
+			"--app", "app-1",
+			"--version", "1.2.3",
+			"--dir", dir,
+		}); err != nil {
+			t.Fatalf("parse error: %v", err)
+		}
+		if err := root.Run(context.Background()); err != nil {
+			t.Fatalf("run error: %v", err)
+		}
+	})
+
+	if createCount != 1 {
+		t.Fatalf("expected one create API call, got %d", createCount)
+	}
+	if !strings.Contains(stderr, "created locale ja now participates in submission validation") {
+		t.Fatalf("expected applied create warning on stderr, got %q", stderr)
+	}
+	for _, want := range []string{"keywords, supportUrl", "Fill the remaining metadata before submission."} {
+		if !strings.Contains(stderr, want) {
+			t.Fatalf("expected stderr to contain %q, got %q", want, stderr)
+		}
+	}
+
+	var payload struct {
+		Applied bool `json:"applied"`
+		Actions []struct {
+			Action string `json:"action"`
+			Scope  string `json:"scope"`
+			Locale string `json:"locale"`
+		} `json:"actions"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+		t.Fatalf("unmarshal output: %v\nstdout=%q", err, stdout)
+	}
+	if !payload.Applied {
+		t.Fatalf("expected applied result, got %+v", payload)
+	}
+	if len(payload.Actions) != 1 || payload.Actions[0].Action != "create" || payload.Actions[0].Locale != "ja" || payload.Actions[0].Scope != "version" {
+		t.Fatalf("expected single version create action, got %+v", payload.Actions)
+	}
+}
+
 func TestMetadataPushApplyDeletesWhenConfirmed(t *testing.T) {
 	setupAuth(t)
 	t.Setenv("ASC_CONFIG_PATH", filepath.Join(t.TempDir(), "nonexistent.json"))
