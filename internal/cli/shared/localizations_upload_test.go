@@ -216,7 +216,7 @@ func TestUploadVersionLocalizationsWithWarnings_DryRunWarnsOnlyForCreates(t *tes
 		},
 	}
 
-	results, warnings, err := UploadVersionLocalizationsWithWarnings(context.Background(), client, "version-id", valuesByLocale, true)
+	results, warnings, err := UploadVersionLocalizationsWithWarnings(context.Background(), client, "version-id", valuesByLocale, true, SubmitReadinessOptions{})
 	if err != nil {
 		t.Fatalf("UploadVersionLocalizationsWithWarnings() error: %v", err)
 	}
@@ -258,7 +258,7 @@ func TestUploadVersionLocalizationsWithWarnings_AppliedCompleteCreateDoesNotWarn
 		},
 	}
 
-	results, warnings, err := UploadVersionLocalizationsWithWarnings(context.Background(), client, "version-id", valuesByLocale, false)
+	results, warnings, err := UploadVersionLocalizationsWithWarnings(context.Background(), client, "version-id", valuesByLocale, false, SubmitReadinessOptions{})
 	if err != nil {
 		t.Fatalf("UploadVersionLocalizationsWithWarnings() error: %v", err)
 	}
@@ -283,5 +283,45 @@ func TestIsWhatsNewUnsupportedError(t *testing.T) {
 	}
 	if isWhatsNewUnsupportedError(errors.New("timeout")) {
 		t.Fatal("did not expect unrelated error to match")
+	}
+}
+
+func TestUploadVersionLocalizationsWithWarnings_RequiresWhatsNewWhenConfigured(t *testing.T) {
+	client := &stubVersionLocalizationClient{
+		getResp: &asc.AppStoreVersionLocalizationsResponse{
+			Data: []asc.Resource[asc.AppStoreVersionLocalizationAttributes]{},
+		},
+	}
+
+	valuesByLocale := map[string]map[string]string{
+		"ja": {
+			"description": "日本語説明",
+			"keywords":    "一,二",
+			"supportUrl":  "https://example.com/ja",
+		},
+	}
+
+	results, warnings, err := UploadVersionLocalizationsWithWarnings(
+		context.Background(),
+		client,
+		"version-id",
+		valuesByLocale,
+		true,
+		SubmitReadinessOptions{RequireWhatsNew: true},
+	)
+	if err != nil {
+		t.Fatalf("UploadVersionLocalizationsWithWarnings() error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if len(warnings) != 1 {
+		t.Fatalf("expected 1 warning, got %+v", warnings)
+	}
+	if warnings[0].Locale != "ja" {
+		t.Fatalf("expected warning for ja locale, got %+v", warnings[0])
+	}
+	if len(warnings[0].MissingFields) != 1 || warnings[0].MissingFields[0] != "whatsNew" {
+		t.Fatalf("expected missing fields [whatsNew], got %+v", warnings[0].MissingFields)
 	}
 }

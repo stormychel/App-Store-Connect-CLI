@@ -46,7 +46,7 @@ func TestVersionCreateWarningForPatch_SkipsExistingRemoteLocale(t *testing.T) {
 		localization: VersionLocalization{Keywords: "one,two"},
 	}
 
-	if _, ok := versionCreateWarningForPatch("fr-FR", patch, true, shared.SubmitReadinessCreateModePlanned); ok {
+	if _, ok := versionCreateWarningForPatch("fr-FR", patch, true, shared.SubmitReadinessCreateModePlanned, shared.SubmitReadinessOptions{}); ok {
 		t.Fatal("expected no warning when remote locale already exists")
 	}
 }
@@ -63,7 +63,7 @@ func TestVersionCreateWarningForPatch_UsesEffectiveCreatePayload(t *testing.T) {
 		},
 	}
 
-	if _, ok := versionCreateWarningForPatch("fr-FR", patch, false, shared.SubmitReadinessCreateModeApplied); ok {
+	if _, ok := versionCreateWarningForPatch("fr-FR", patch, false, shared.SubmitReadinessCreateModeApplied, shared.SubmitReadinessOptions{}); ok {
 		t.Fatal("expected no warning when effective create payload is complete")
 	}
 }
@@ -89,6 +89,7 @@ func TestVersionCreateWarningsForPatches_ReturnsSortedWarnings(t *testing.T) {
 			"en-US": {Keywords: "english,keywords"},
 		},
 		shared.SubmitReadinessCreateModePlanned,
+		shared.SubmitReadinessOptions{},
 	)
 
 	if len(warnings) != 2 {
@@ -101,5 +102,32 @@ func TestVersionCreateWarningsForPatches_ReturnsSortedWarnings(t *testing.T) {
 		if len(warning.MissingFields) != 2 || warning.MissingFields[0] != "description" || warning.MissingFields[1] != "supportUrl" {
 			t.Fatalf("expected description/supportUrl missing fields, got %+v", warning)
 		}
+	}
+}
+
+func TestVersionCreateWarningsForPatches_RequiresWhatsNewForUpdates(t *testing.T) {
+	warnings := versionCreateWarningsForPatches(
+		map[string]versionLocalPatch{
+			"en-US": {
+				localization: VersionLocalization{
+					Description: "Description",
+					Keywords:    "english,keywords",
+					SupportURL:  "https://example.com/support",
+				},
+			},
+		},
+		map[string]VersionLocalization{},
+		shared.SubmitReadinessCreateModePlanned,
+		shared.SubmitReadinessOptions{RequireWhatsNew: true},
+	)
+
+	if len(warnings) != 1 {
+		t.Fatalf("expected 1 warning, got %d: %+v", len(warnings), warnings)
+	}
+	if warnings[0].Locale != "en-US" {
+		t.Fatalf("expected warning for en-US, got %+v", warnings[0])
+	}
+	if len(warnings[0].MissingFields) != 1 || warnings[0].MissingFields[0] != "whatsNew" {
+		t.Fatalf("expected missing fields [whatsNew], got %+v", warnings[0].MissingFields)
 	}
 }

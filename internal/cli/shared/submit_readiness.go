@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sort"
@@ -95,7 +96,13 @@ func SubmitReadinessIssuesByLocaleWithOptions(localizations []asc.Resource[asc.A
 // SubmitReadinessCreateWarningForLocale returns a create warning when the
 // provided attributes would leave the locale incomplete for submission.
 func SubmitReadinessCreateWarningForLocale(locale string, attrs asc.AppStoreVersionLocalizationAttributes, mode string) (SubmitReadinessCreateWarning, bool) {
-	missing := MissingSubmitRequiredLocalizationFields(attrs)
+	return SubmitReadinessCreateWarningForLocaleWithOptions(locale, attrs, mode, SubmitReadinessOptions{})
+}
+
+// SubmitReadinessCreateWarningForLocaleWithOptions returns a create warning when
+// the provided attributes would leave the locale incomplete for submission.
+func SubmitReadinessCreateWarningForLocaleWithOptions(locale string, attrs asc.AppStoreVersionLocalizationAttributes, mode string, opts SubmitReadinessOptions) (SubmitReadinessCreateWarning, bool) {
+	missing := MissingSubmitRequiredLocalizationFieldsWithOptions(attrs, opts)
 	if len(missing) == 0 {
 		return SubmitReadinessCreateWarning{}, false
 	}
@@ -113,6 +120,81 @@ func SubmitReadinessCreateWarningForLocale(locale string, attrs asc.AppStoreVers
 		Mode:          normalizeSubmitReadinessCreateMode(mode),
 		MissingFields: append([]string(nil), missing...),
 	}, true
+}
+
+// IsAppUpdate returns true if the target platform has ever been released,
+// meaning new localizations for the current version must include whatsNew.
+func IsAppUpdate(ctx context.Context, client *asc.Client, appID, platform string) (bool, error) {
+	opts := []asc.AppStoreVersionsOption{
+		asc.WithAppStoreVersionsStates([]string{
+			"READY_FOR_SALE",
+			"DEVELOPER_REMOVED_FROM_SALE",
+			"REMOVED_FROM_SALE",
+		}),
+		asc.WithAppStoreVersionsLimit(1),
+	}
+	if strings.TrimSpace(platform) != "" {
+		opts = append(opts, asc.WithAppStoreVersionsPlatforms([]string{platform}))
+	}
+
+	versions, err := client.GetAppStoreVersions(ctx, appID, opts...)
+	if err != nil {
+		return false, err
+	}
+	return len(versions.Data) > 0, nil
+}
+
+// ResolveSubmitReadinessOptionsForVersion resolves create-warning options for a
+// version-localization workflow. Callers that only need advisory warnings
+// should prefer the best-effort wrapper so auxiliary fetch failures do not
+// block the primary mutation.
+func ResolveSubmitReadinessOptionsForVersion(ctx context.Context, client *asc.Client, versionID, appID, platform string) (SubmitReadinessOptions, error) {
+	if client == nil {
+		return SubmitReadinessOptions{}, fmt.Errorf("client is required")
+	}
+
+	resolvedAppID := strings.TrimSpace(appID)
+	resolvedPlatform := strings.TrimSpace(platform)
+	if resolvedAppID == "" || resolvedPlatform == "" {
+		trimmedVersionID := strings.TrimSpace(versionID)
+		if trimmedVersionID == "" {
+			return SubmitReadinessOptions{}, fmt.Errorf("version id is required when app or platform is unknown")
+		}
+
+		versionResp, err := client.GetAppStoreVersion(ctx, trimmedVersionID, asc.WithAppStoreVersionInclude([]string{"app"}))
+		if err != nil {
+			return SubmitReadinessOptions{}, err
+		}
+		if resolvedAppID == "" {
+			relatedAppID, err := asc.AppStoreVersionAppID(versionResp)
+			if err != nil {
+				return SubmitReadinessOptions{}, err
+			}
+			resolvedAppID = strings.TrimSpace(relatedAppID)
+		}
+		if resolvedPlatform == "" {
+			resolvedPlatform = strings.TrimSpace(string(versionResp.Data.Attributes.Platform))
+		}
+	}
+	if resolvedAppID == "" || resolvedPlatform == "" {
+		return SubmitReadinessOptions{}, fmt.Errorf("could not resolve app update context for version %q", strings.TrimSpace(versionID))
+	}
+
+	requireWhatsNew, err := IsAppUpdate(ctx, client, resolvedAppID, resolvedPlatform)
+	if err != nil {
+		return SubmitReadinessOptions{}, err
+	}
+	return SubmitReadinessOptions{RequireWhatsNew: requireWhatsNew}, nil
+}
+
+// ResolveSubmitReadinessOptionsForVersionBestEffort resolves create-warning
+// options without failing the caller when advisory context fetches fail.
+func ResolveSubmitReadinessOptionsForVersionBestEffort(ctx context.Context, client *asc.Client, versionID, appID, platform string) SubmitReadinessOptions {
+	opts, err := ResolveSubmitReadinessOptionsForVersion(ctx, client, versionID, appID, platform)
+	if err != nil {
+		return SubmitReadinessOptions{}
+	}
+	return opts
 }
 
 // NormalizeSubmitReadinessCreateWarnings sorts and dedupes warnings so callers

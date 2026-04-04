@@ -284,11 +284,11 @@ func ReadLocalizationStrings(inputPath string, locales []string) (map[string]map
 }
 
 func UploadVersionLocalizations(ctx context.Context, client versionLocalizationClient, versionID string, valuesByLocale map[string]map[string]string, dryRun bool) ([]asc.LocalizationUploadLocaleResult, error) {
-	results, _, err := UploadVersionLocalizationsWithWarnings(ctx, client, versionID, valuesByLocale, dryRun)
+	results, _, err := UploadVersionLocalizationsWithWarnings(ctx, client, versionID, valuesByLocale, dryRun, SubmitReadinessOptions{})
 	return results, err
 }
 
-func UploadVersionLocalizationsWithWarnings(ctx context.Context, client versionLocalizationClient, versionID string, valuesByLocale map[string]map[string]string, dryRun bool) ([]asc.LocalizationUploadLocaleResult, []SubmitReadinessCreateWarning, error) {
+func UploadVersionLocalizationsWithWarnings(ctx context.Context, client versionLocalizationClient, versionID string, valuesByLocale map[string]map[string]string, dryRun bool, submitOpts SubmitReadinessOptions) ([]asc.LocalizationUploadLocaleResult, []SubmitReadinessCreateWarning, error) {
 	for locale, values := range valuesByLocale {
 		if err := ValidateVersionLocalizationKeys(locale, values); err != nil {
 			return nil, nil, err
@@ -316,7 +316,7 @@ func UploadVersionLocalizationsWithWarnings(ctx context.Context, client versionL
 	results, err := uploadLocalizationValues(valuesByLocale, existingByLocale, func(locale string, values map[string]string, existingID string) (asc.LocalizationUploadLocaleResult, error) {
 		attributes := buildVersionLocalizationAttributes(locale, values, existingID == "")
 		if existingID == "" {
-			if warning, ok := SubmitReadinessCreateWarningForLocale(locale, attributes, mode); ok {
+			if warning, ok := SubmitReadinessCreateWarningForLocaleWithOptions(locale, attributes, mode, submitOpts); ok {
 				warnings = append(warnings, warning)
 			}
 			if dryRun {

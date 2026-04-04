@@ -195,6 +195,34 @@ func TestSubmitReadinessCreateWarningForLocale_ReturnsFalseForCompleteCreate(t *
 	}
 }
 
+func TestSubmitReadinessCreateWarningForLocaleWithOptions_RequiresWhatsNew(t *testing.T) {
+	attrs := asc.AppStoreVersionLocalizationAttributes{
+		Locale:      "en-US",
+		Description: "Description",
+		Keywords:    "app,test",
+		SupportURL:  "https://example.com/support",
+	}
+
+	warning, ok := SubmitReadinessCreateWarningForLocaleWithOptions(
+		"",
+		attrs,
+		SubmitReadinessCreateModeApplied,
+		SubmitReadinessOptions{RequireWhatsNew: true},
+	)
+	if !ok {
+		t.Fatal("expected warning")
+	}
+	if warning.Locale != "en-US" {
+		t.Fatalf("expected locale en-US, got %q", warning.Locale)
+	}
+	if warning.Mode != SubmitReadinessCreateModeApplied {
+		t.Fatalf("expected applied mode, got %q", warning.Mode)
+	}
+	if len(warning.MissingFields) != 1 || warning.MissingFields[0] != "whatsNew" {
+		t.Fatalf("expected missing fields [whatsNew], got %+v", warning.MissingFields)
+	}
+}
+
 func TestNormalizeSubmitReadinessCreateWarnings_SortsAndDedupes(t *testing.T) {
 	warnings := []SubmitReadinessCreateWarning{
 		{
