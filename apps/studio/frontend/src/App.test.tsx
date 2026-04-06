@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 
+const FIXED_INSIGHTS_NOW = "2026-03-30T12:00:00Z";
+
 const {
   mockListApps,
   mockCheckAuthStatus,
@@ -72,6 +74,43 @@ vi.mock("../wailsjs/go/models", () => ({
 import App, { insightsWeekStart } from "./App";
 import { sectionCommands } from "./constants";
 
+function stubCurrentDate(iso = FIXED_INSIGHTS_NOW) {
+  const RealDate = Date;
+  const fixedTime = new RealDate(iso).getTime();
+
+  class MockDate extends RealDate {
+    constructor(
+      value?: string | number | Date,
+      month?: number,
+      date?: number,
+      hours?: number,
+      minutes?: number,
+      seconds?: number,
+      ms?: number,
+    ) {
+      if (month === undefined) {
+        super(value ?? fixedTime);
+        return;
+      }
+
+      super(value as number, month, date, hours, minutes, seconds, ms);
+    }
+
+    static now() {
+      return fixedTime;
+    }
+
+    static parse = RealDate.parse;
+    static UTC = RealDate.UTC;
+  }
+
+  vi.stubGlobal("Date", MockDate);
+}
+
+function insightsWeeklyCommand(appID: string) {
+  return `insights weekly --app '${appID}' --source analytics --week ${insightsWeekStart(new Date(FIXED_INSIGHTS_NOW))} --output json`;
+}
+
 async function pickApp(name: string) {
   fireEvent.change(screen.getByLabelText("Search apps"), { target: { value: name } });
   fireEvent.click(await screen.findByRole("option", { name: new RegExp(name, "i") }));
@@ -79,6 +118,7 @@ async function pickApp(name: string) {
 
 describe("App", () => {
   beforeEach(() => {
+    vi.unstubAllGlobals();
     vi.clearAllMocks();
 
     mockListApps.mockResolvedValue({
@@ -1484,6 +1524,10 @@ describe("App", () => {
 
   it("ignores stale insights responses after switching apps", async () => {
     let resolveFirstInsights: ((value: { error: string; data: string }) => void) | undefined;
+    const firstAppInsightsCommand = insightsWeeklyCommand("1");
+    const secondAppInsightsCommand = insightsWeeklyCommand("2");
+
+    stubCurrentDate();
 
     mockListApps.mockResolvedValue({
       apps: [
@@ -1514,12 +1558,12 @@ describe("App", () => {
       });
     });
     mockRunASCCommand.mockImplementation((cmd: string) => {
-      if (cmd === "insights weekly --app '1' --source analytics --week 2026-03-30 --output json") {
+      if (cmd === firstAppInsightsCommand) {
         return new Promise((resolve) => {
           resolveFirstInsights = resolve as (value: { error: string; data: string }) => void;
         });
       }
-      if (cmd === "insights weekly --app '2' --source analytics --week 2026-03-30 --output json") {
+      if (cmd === secondAppInsightsCommand) {
         return Promise.resolve({
           error: "",
           data: JSON.stringify({
@@ -1537,9 +1581,7 @@ describe("App", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Insights" }));
 
     await waitFor(() => {
-      expect(mockRunASCCommand).toHaveBeenCalledWith(
-        "insights weekly --app '1' --source analytics --week 2026-03-30 --output json",
-      );
+      expect(mockRunASCCommand).toHaveBeenCalledWith(firstAppInsightsCommand);
     });
 
     await pickApp("Second App");
@@ -1561,6 +1603,7 @@ describe("App", () => {
   });
 
   it("reloads insights when refreshing the selected app on the insights view", async () => {
+    const insightsCommand = insightsWeeklyCommand("1");
     const firstInsights = {
       error: "",
       data: JSON.stringify({
@@ -1574,8 +1617,10 @@ describe("App", () => {
       }),
     };
 
+    stubCurrentDate();
+
     mockRunASCCommand.mockImplementation((cmd: string) => {
-      if (cmd === "insights weekly --app '1' --source analytics --week 2026-03-30 --output json") {
+      if (cmd === insightsCommand) {
         return Promise.resolve(
           mockRunASCCommand.mock.calls.filter(([calledCmd]) => calledCmd === cmd).length === 1
             ? firstInsights
@@ -1596,7 +1641,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /Refresh/i }));
 
     expect(await screen.findByText("refreshed metric")).toBeInTheDocument();
-    expect(mockRunASCCommand.mock.calls.filter(([cmd]) => cmd === "insights weekly --app '1' --source analytics --week 2026-03-30 --output json")).toHaveLength(2);
+    expect(mockRunASCCommand.mock.calls.filter(([cmd]) => cmd === insightsCommand)).toHaveLength(2);
   });
 
   it("ignores stale tester responses after switching groups", async () => {
