@@ -18,7 +18,7 @@ func LocalizationsCreateCommand() *ffcli.Command {
 	fs := flag.NewFlagSet("create", flag.ExitOnError)
 
 	versionID := fs.String("version", "", "App Store version ID (required)")
-	locale := fs.String("locale", "", "Locale code to create (required, e.g., en-US, ja, es-MX)")
+	locale := fs.String("locale", "", "Locale code to create (required; use canonical ASC values like en-US, ja, ar-SA, zh-Hans)")
 	description := fs.String("description", "", "App description")
 	keywords := fs.String("keywords", "", "Search keywords")
 	whatsNew := fs.String("whats-new", "", "What's new text")
@@ -33,9 +33,21 @@ func LocalizationsCreateCommand() *ffcli.Command {
 		ShortHelp:  "Create a new locale for an app store version.",
 		LongHelp: `Create a new locale for an app store version.
 
+Use canonical App Store Connect locale identifiers when possible. Common accepted
+forms include en-US, es-MX, de-DE, ja, ar-SA, zh-Hans, and zh-Hant.
+
+To inspect the shared CLI locale catalog for a version, run:
+  asc localizations supported-locales --version "VERSION_ID"
+
+Common failures:
+  "ar" is usually rejected; use "ar-SA"
+  "de" should usually be "de-DE"
+  use "zh-Hans" or "zh-Hant" instead of "zh-Hans-CN" or "zh-Hant-TW"
+
 Examples:
   asc localizations create --version "VERSION_ID" --locale "ja"
-  asc localizations create --version "VERSION_ID" --locale "es-MX" --description "Mi app" --keywords "palabra,clave"
+  asc localizations create --version "VERSION_ID" --locale "ar-SA" --description "Arabic app" --keywords "arabic,productivity"
+  asc localizations create --version "VERSION_ID" --locale "zh-Hans" --description "Simplified Chinese app" --keywords "simplified,chinese"
   asc localizations create --version "VERSION_ID" --locale "de-DE" --description "Meine App" --support-url "https://example.com/support"`,
 		FlagSet:   fs,
 		UsageFunc: shared.DefaultUsageFunc,

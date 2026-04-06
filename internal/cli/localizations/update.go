@@ -22,7 +22,7 @@ func LocalizationsUpdateCommand() *ffcli.Command {
 	appID := fs.String("app", "", "App Store Connect app ID (or ASC_APP_ID, for app-info localizations)")
 	appInfoID := fs.String("app-info", "", "App Info ID (optional override)")
 	locType := fs.String("type", shared.LocalizationTypeVersion, "Localization type: version (default) or app-info")
-	locale := fs.String("locale", "", "Locale to update (required, e.g., en-US)")
+	locale := fs.String("locale", "", "Locale to update (required; reuse exact ASC locale like en-US, ar-SA, zh-Hans)")
 
 	// App-info fields
 	name := fs.String("name", "", "App name (app-info)")
@@ -47,11 +47,26 @@ func LocalizationsUpdateCommand() *ffcli.Command {
 		ShortHelp:  "Update localization fields directly.",
 		LongHelp: `Update localization fields directly without file preparation.
 
+Pass the exact locale value already stored in App Store Connect. Common accepted
+forms include en-US, de-DE, ja, ar-SA, zh-Hans, and zh-Hant.
+
+Common failures:
+  "ar" is usually stored as "ar-SA"
+  "de" is usually stored as "de-DE"
+  "zh-Hans-CN" and "zh-Hant-TW" are usually stored as "zh-Hans" and "zh-Hant"
+
+If a version locale is rejected or not found, run:
+  asc localizations supported-locales --version "VERSION_ID"
+  asc localizations list --version "VERSION_ID"
+
+For app-info localizations, inspect configured locales with:
+  asc localizations list --app "APP_ID" --type app-info
+
 For app-info localizations (name, subtitle, privacy URLs):
-  asc localizations update --app "APP_ID" --type app-info --locale "en-US" --subtitle "My App"
+  asc localizations update --app "APP_ID" --type app-info --locale "ar-SA" --subtitle "Arabic subtitle"
 
 For version localizations (description, keywords, whatsNew):
-  asc localizations update --version "VERSION_ID" --locale "en-US" --description "Updated description"
+  asc localizations update --version "VERSION_ID" --locale "zh-Hans" --description "Simplified Chinese description"
 
 At least one field flag must be provided.`,
 		FlagSet:   fs,
