@@ -202,8 +202,11 @@ func MetadataKeywordsCommand() *ffcli.Command {
 		ShortHelp:  "Manage canonical version-localization keyword metadata.",
 		LongHelp: `Manage canonical version-localization keyword metadata.
 
-This workflow manages the canonical version-localization ` + "`keywords`" + ` field
-inside ` + "`./metadata/version/<version>/<locale>.json`" + ` files.
+This workflow manages the canonical version-localization ` + "`keywords`" + ` field.
+
+Most commands operate on local ` + "`./metadata/version/<version>/<locale>.json`" + `
+files. The direct-remote ` + "`push`" + ` helper writes locale-keyed keyword input
+straight to App Store Connect by App Store version ID.
 
 It does not front the raw App Store Connect ` + "`searchKeywords`" + `
 relationship APIs. Those low-level surfaces remain available under:
@@ -215,6 +218,7 @@ Examples:
   asc metadata keywords plan --app "APP_ID" --version "1.2.3" --dir "./metadata"
   asc metadata keywords localize --dir "./metadata" --version "1.2.3" --from-locale "en-US" --to-locales "fr-FR,de-DE"
   asc metadata keywords apply --app "APP_ID" --version "1.2.3" --dir "./metadata" --confirm
+  asc metadata keywords push --version-id "VERSION_ID" --input "./keywords.json"
   asc metadata keywords sync --app "APP_ID" --version "1.2.3" --dir "./metadata" --input "./keywords.json" --format json --confirm`,
 		FlagSet:   fs,
 		UsageFunc: shared.DefaultUsageFunc,
@@ -224,6 +228,7 @@ Examples:
 			MetadataKeywordsDiffCommand(),
 			MetadataKeywordsLocalizeCommand(),
 			MetadataKeywordsApplyCommand(),
+			MetadataKeywordsPushCommand(),
 			MetadataKeywordsSyncCommand(),
 		},
 		Exec: func(ctx context.Context, args []string) error {

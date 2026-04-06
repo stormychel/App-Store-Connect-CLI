@@ -3343,6 +3343,16 @@ func TestLocalizationsValidationErrors(t *testing.T) {
 			wantErr: "--path is required",
 		},
 		{
+			name:    "metadata keywords push missing version id",
+			args:    []string{"metadata", "keywords", "push", "--input", "keywords.json"},
+			wantErr: "--version-id is required",
+		},
+		{
+			name:    "metadata keywords push missing input",
+			args:    []string{"metadata", "keywords", "push", "--version-id", "VERSION_ID"},
+			wantErr: "--input is required",
+		},
+		{
 			name:    "localizations upload missing version",
 			args:    []string{"localizations", "upload", "--path", "localizations"},
 			wantErr: "--version is required",
