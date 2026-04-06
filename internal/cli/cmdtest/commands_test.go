@@ -1412,6 +1412,11 @@ func TestPricingValidationErrors(t *testing.T) {
 		wantErr string
 	}{
 		{
+			name:    "pricing price-points equalizations missing price-point",
+			args:    []string{"pricing", "price-points", "equalizations"},
+			wantErr: "Error: --price-point is required",
+		},
+		{
 			name:    "pricing schedule get missing app and id",
 			args:    []string{"pricing", "schedule", "view"},
 			wantErr: "Error: --app or --id is required",

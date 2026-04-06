@@ -268,64 +268,22 @@ Examples:
 
 // SubscriptionsPricePointsEqualizationsCommand returns the price point equalizations subcommand.
 func SubscriptionsPricePointsEqualizationsCommand() *ffcli.Command {
-	fs := flag.NewFlagSet("price-points equalizations", flag.ExitOnError)
-
-	pricePointID := fs.String("price-point-id", "", "Subscription price point ID")
-	paginate := fs.Bool("paginate", false, "Automatically fetch all pages (aggregate results)")
-	output := shared.BindOutputFlags(fs)
-
-	return &ffcli.Command{
-		Name:       "equalizations",
-		ShortUsage: "asc subscriptions price-points equalizations --price-point-id \"PRICE_POINT_ID\"",
-		ShortHelp:  "List equalized price points for a subscription price point.",
-		LongHelp: `List equalized price points for a subscription price point.
-
-Examples:
-  asc subscriptions price-points equalizations --price-point-id "PRICE_POINT_ID"
-  asc subscriptions price-points equalizations --price-point-id "PRICE_POINT_ID" --paginate`,
-		FlagSet:   fs,
-		UsageFunc: shared.DefaultUsageFunc,
-		Exec: func(ctx context.Context, args []string) error {
-			id := strings.TrimSpace(*pricePointID)
-			if id == "" {
-				fmt.Fprintln(os.Stderr, "Error: --price-point-id is required")
-				return flag.ErrHelp
+	return shared.BuildPricePointEqualizationsCommand(shared.PricePointEqualizationsCommandConfig{
+		FlagSetName: "price-points equalizations",
+		Name:        "equalizations",
+		ShortUsage:  `asc subscriptions price-points equalizations --price-point-id "PRICE_POINT_ID"`,
+		BaseExample: `asc subscriptions price-points equalizations --price-point-id "PRICE_POINT_ID"`,
+		Subject:     "a subscription price point",
+		ParentFlag:  "price-point-id",
+		ParentUsage: "Subscription price point ID",
+		LimitMax:    8000,
+		ErrorPrefix: "subscriptions price-points equalizations",
+		FetchPage: func(ctx context.Context, client *asc.Client, pricePointID string, limit int, next string) (asc.PaginatedResponse, error) {
+			opts := []asc.SubscriptionPricePointsOption{
+				asc.WithSubscriptionPricePointsLimit(limit),
+				asc.WithSubscriptionPricePointsNextURL(next),
 			}
-
-			client, err := shared.GetASCClient()
-			if err != nil {
-				return fmt.Errorf("subscriptions price-points equalizations: %w", err)
-			}
-
-			requestCtx, cancel := shared.ContextWithTimeout(ctx)
-			defer cancel()
-
-			// When paginating, request with limit=200 to minimize API calls
-			var resp *asc.SubscriptionPricePointsResponse
-			if *paginate {
-				resp, err = client.GetSubscriptionPricePointEqualizations(requestCtx, id, asc.WithSubscriptionPricePointsLimit(200))
-			} else {
-				resp, err = client.GetSubscriptionPricePointEqualizations(requestCtx, id)
-			}
-			if err != nil {
-				return fmt.Errorf("subscriptions price-points equalizations: %w", err)
-			}
-
-			if *paginate {
-				allPages, pErr := asc.PaginateAll(ctx, resp, func(_ context.Context, nextURL string) (asc.PaginatedResponse, error) {
-					pageCtx, pageCancel := shared.ContextWithTimeout(ctx)
-					defer pageCancel()
-					return client.GetSubscriptionPricePointEqualizations(pageCtx, id, asc.WithSubscriptionPricePointsNextURL(nextURL))
-				})
-				if pErr != nil {
-					return fmt.Errorf("subscriptions price-points equalizations: %w", pErr)
-				}
-				if typed, ok := allPages.(*asc.SubscriptionPricePointsResponse); ok {
-					resp = typed
-				}
-			}
-
-			return shared.PrintOutput(resp, *output.Output, *output.Pretty)
+			return client.GetSubscriptionPricePointEqualizations(ctx, pricePointID, opts...)
 		},
-	}
+	})
 }
