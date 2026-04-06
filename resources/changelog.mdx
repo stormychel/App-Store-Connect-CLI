@@ -14,6 +14,20 @@ The App Store Connect CLI follows semantic versioning. All releases are availabl
 
 No unreleased changes yet.
 
+### 1.1.1
+
+**Highlights**:
+
+* Metadata keyword validation now counts characters instead of UTF-8 bytes, fixing false failures for Arabic, Japanese, and other non-English scripts
+* Screenshot upload helper regressions are covered by focused shared-flow tests so screenshot-set upload behavior is less likely to break silently
+* The Wall of Apps adds Imposter Game: Fakeout Party, QontactR, RateTier, and SweatCount - Workout Calendar
+
+**Changes**:
+
+* `fix(metadata)`: Validate metadata and localization keywords by characters across shared keyword validation flows
+* `test(assets)`: Add regression coverage for the shared screenshot set upload helper
+* `build(community)`: Add Imposter Game: Fakeout Party, QontactR, RateTier, and SweatCount - Workout Calendar to the Wall of Apps
+
 ### 1.1.0
 
 **Highlights**:
