@@ -2,9 +2,12 @@ package cmdtest
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"io"
+	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -253,5 +256,59 @@ func TestReviewsResponseParentShowsHelp(t *testing.T) {
 	// Should show help with subcommands listed
 	if !strings.Contains(stderr, "view") || !strings.Contains(stderr, "delete") || !strings.Contains(stderr, "for-review") {
 		t.Fatalf("expected help output with subcommands, got %q", stderr)
+	}
+}
+
+func TestReviewsResponseForReviewReturnsNotConfiguredStateWhenUnset(t *testing.T) {
+	setupAuth(t)
+	t.Setenv("ASC_CONFIG_PATH", filepath.Join(t.TempDir(), "nonexistent.json"))
+
+	originalTransport := http.DefaultTransport
+	t.Cleanup(func() {
+		http.DefaultTransport = originalTransport
+	})
+
+	http.DefaultTransport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.Method != http.MethodGet {
+			t.Fatalf("expected GET, got %s", req.Method)
+		}
+		if req.URL.Path != "/v1/customerReviews/review-1/response" {
+			t.Fatalf("expected review response path, got %s", req.URL.Path)
+		}
+		return jsonResponse(http.StatusNotFound, `{"errors":[{"status":"404","code":"NOT_FOUND","title":"Not Found"}]}`)
+	})
+
+	root := RootCommand("1.2.3")
+	root.FlagSet.SetOutput(io.Discard)
+
+	stdout, stderr := captureOutput(t, func() {
+		if err := root.Parse([]string{"reviews", "response", "for-review", "--review-id", "review-1", "--output", "json"}); err != nil {
+			t.Fatalf("parse error: %v", err)
+		}
+		if err := root.Run(context.Background()); err != nil {
+			t.Fatalf("run error: %v", err)
+		}
+	})
+
+	if !strings.Contains(stderr, "Warning: Customer review response is not configured for review \"review-1\".") {
+		t.Fatalf("expected not-configured warning, got %q", stderr)
+	}
+
+	var payload struct {
+		ReviewID   string `json:"reviewId"`
+		Configured bool   `json:"configured"`
+		Message    string `json:"message"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+		t.Fatalf("unmarshal output: %v\nstdout=%s", err, stdout)
+	}
+	if payload.ReviewID != "review-1" {
+		t.Fatalf("expected reviewId review-1, got %q", payload.ReviewID)
+	}
+	if payload.Configured {
+		t.Fatal("expected configured=false")
+	}
+	if payload.Message == "" {
+		t.Fatal("expected message")
 	}
 }
