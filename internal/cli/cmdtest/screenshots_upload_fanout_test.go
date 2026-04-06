@@ -47,7 +47,7 @@ func TestScreenshotsUploadRejectsMixingDirectAndAppScopedSelectors(t *testing.T)
 	}
 }
 
-func TestScreenshotsUploadAppScopedModeRespectsASCAppIDFallback(t *testing.T) {
+func TestScreenshotsUploadIgnoresASCAppIDUntilAppScopedModeIsRequested(t *testing.T) {
 	t.Setenv("ASC_APP_ID", "123456789")
 
 	stdout, stderr, runErr := runRootCommand(t, []string{
@@ -62,7 +62,7 @@ func TestScreenshotsUploadAppScopedModeRespectsASCAppIDFallback(t *testing.T) {
 	if !errors.Is(runErr, flag.ErrHelp) {
 		t.Fatalf("expected flag.ErrHelp, got %v", runErr)
 	}
-	if !strings.Contains(stderr, "Error: --version or --version-id is required with --app") {
-		t.Fatalf("expected missing app-scoped version selector error, got %q", stderr)
+	if !strings.Contains(stderr, "Error: --version-localization is required") {
+		t.Fatalf("expected direct-mode selector error, got %q", stderr)
 	}
 }

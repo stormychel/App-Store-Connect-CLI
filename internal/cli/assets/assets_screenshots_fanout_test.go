@@ -2,6 +2,7 @@ package assets
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -280,5 +281,36 @@ func TestExecuteScreenshotUploadCommandValidatesFanoutFilesBeforeClientCreation(
 	}
 	if !strings.Contains(err.Error(), "no screenshot files matching APP_IPHONE_65 found") {
 		t.Fatalf("expected local validation error, got %v", err)
+	}
+}
+
+func TestExecuteScreenshotUploadCommandUsesASCAppIDFallbackForExplicitAppMode(t *testing.T) {
+	t.Setenv("ASC_APP_ID", "123456789")
+
+	rootDir := t.TempDir()
+	enDir := filepath.Join(rootDir, "en-US", "iphone")
+	if err := os.MkdirAll(enDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll() error: %v", err)
+	}
+	writeAssetsTestPNGWithSize(t, enDir, "01-home.png", 1242, 2688)
+
+	sentinelErr := errors.New("client requested")
+	clientCalled := false
+
+	_, err := executeScreenshotUploadCommand(context.Background(), screenshotUploadCommandOptions{
+		Version:    "1.2.3",
+		Path:       rootDir,
+		DeviceType: "IPHONE_65",
+	}, screenshotUploadDependencies{
+		GetClient: func() (*asc.Client, error) {
+			clientCalled = true
+			return nil, sentinelErr
+		},
+	})
+	if !errors.Is(err, sentinelErr) {
+		t.Fatalf("expected sentinel client error, got %v", err)
+	}
+	if !clientCalled {
+		t.Fatal("expected client creation when app mode is explicitly requested")
 	}
 }

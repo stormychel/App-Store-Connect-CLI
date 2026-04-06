@@ -405,23 +405,20 @@ func executeScreenshotUploadCommand(ctx context.Context, opts screenshotUploadCo
 	versionValue := strings.TrimSpace(opts.Version)
 	versionIDValue := strings.TrimSpace(opts.VersionID)
 	platformValue := strings.TrimSpace(opts.Platform)
-	resolvedAppValue := ""
+	appModeRequested := appFlagValue != "" || versionValue != "" || versionIDValue != "" || platformValue != ""
 
 	if locID == "" {
-		resolvedAppValue = shared.ResolveAppID(appFlagValue)
-	}
-
-	if locID == "" {
-		if resolvedAppValue == "" && versionValue == "" && versionIDValue == "" && platformValue == "" {
+		if !appModeRequested {
 			fmt.Fprintln(os.Stderr, "Error: --version-localization is required")
 			return nil, flag.ErrHelp
 		}
-	} else if appFlagValue != "" || versionValue != "" || versionIDValue != "" || platformValue != "" {
+	} else if appModeRequested {
 		fmt.Fprintln(os.Stderr, "Error: --version-localization cannot be combined with --app, --version, --version-id, or --platform")
 		return nil, flag.ErrHelp
 	}
 
 	if locID == "" {
+		resolvedAppValue := shared.ResolveAppID(appFlagValue)
 		if resolvedAppValue == "" {
 			fmt.Fprintln(os.Stderr, "Error: --app is required (or set ASC_APP_ID)")
 			return nil, flag.ErrHelp
