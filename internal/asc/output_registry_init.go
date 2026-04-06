@@ -202,6 +202,15 @@ func init() {
 		}
 		return nil
 	})
+	registerDirect(func(v *AppScreenshotFanoutUploadResult, render func([]string, [][]string)) error {
+		h, r := appScreenshotFanoutUploadResultMainRows(v)
+		render(h, r)
+		if len(v.Localizations) > 0 {
+			lh, lr := appScreenshotFanoutUploadLocalizationRows(v)
+			render(lh, lr)
+		}
+		return nil
+	})
 	registerDirect(func(v *AppPreviewUploadResult, render func([]string, [][]string)) error {
 		h, r := appPreviewUploadResultMainRows(v)
 		render(h, r)

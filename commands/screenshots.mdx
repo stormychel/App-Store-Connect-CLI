@@ -182,7 +182,17 @@ asc screenshots upload --version-localization "LOC_ID" \
 asc screenshots upload --version-localization "LOC_ID" \
   --path "./screenshots/iphone" \
   --device-type "IPHONE_65"
+
+# Fan out across locale directories in one run
+asc screenshots upload --app "123456789" \
+  --version "1.2.3" \
+  --path "./screenshots" \
+  --device-type "IPHONE_65"
 ```
+
+For app/version fan-out uploads, structure `--path` with locale directories such as
+`./screenshots/en-US/iphone/*.png` and `./screenshots/fr-FR/iphone/*.png`.
+Each locale directory is matched against the remote App Store version localizations.
 
 **File Requirements:**
 
@@ -202,6 +212,12 @@ asc screenshots upload --version-localization "LOC_ID" \
 asc screenshots upload --version-localization "LOC_ID" \
   --path "./screenshots/ipad" \
   --device-type "IPAD_PRO_3GEN_129"
+
+# Multi-locale iPhone set
+asc screenshots upload --app "123456789" \
+  --version "1.2.3" \
+  --path "./screenshots" \
+  --device-type "IPHONE_65"
 ```
 
 ### Download Screenshots
