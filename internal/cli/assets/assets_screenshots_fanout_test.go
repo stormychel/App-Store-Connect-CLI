@@ -179,6 +179,110 @@ func TestUploadScreenshotsFanoutFiltersMixedDeviceTreesBySelectedDisplayType(t *
 	}
 }
 
+func TestUploadScreenshotsFanoutPreservesPartialResultsAndArtifactsOnLocaleFailure(t *testing.T) {
+	rootDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(rootDir, "en-US"), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(rootDir, "fr-FR"), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error: %v", err)
+	}
+	enFile := writeAssetsTestPNG(t, filepath.Join(rootDir, "en-US"), "01-home.png")
+	frFirst := writeAssetsTestPNG(t, filepath.Join(rootDir, "fr-FR"), "01-home.png")
+	frSecond := writeAssetsTestPNG(t, filepath.Join(rootDir, "fr-FR"), "02-settings.png")
+
+	origTransport := http.DefaultTransport
+	http.DefaultTransport = assetsUploadRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch {
+		case req.Method == http.MethodGet && req.URL.Path == "/v1/appStoreVersions/version-1/appStoreVersionLocalizations":
+			return assetsJSONResponse(http.StatusOK, `{"data":[{"type":"appStoreVersionLocalizations","id":"loc-en","attributes":{"locale":"en-US"}},{"type":"appStoreVersionLocalizations","id":"loc-fr","attributes":{"locale":"fr-FR"}}],"links":{}}`)
+		default:
+			t.Fatalf("unexpected request: %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})
+	t.Cleanup(func() {
+		http.DefaultTransport = origTransport
+	})
+
+	callOrder := make([]string, 0, 2)
+	result, err := uploadScreenshotsFanout(context.Background(), screenshotUploadFanoutConfig{
+		Client:      newAssetsUploadTestClient(t),
+		AppID:       "123456789",
+		Version:     "1.2.3",
+		VersionID:   "version-1",
+		Platform:    "IOS",
+		DisplayType: asc.CanonicalScreenshotDisplayTypeForAPI("APP_IPHONE_65"),
+		LocaleAssets: []screenshotLocaleAssetFiles{
+			{Locale: "en-US", Files: []string{enFile}},
+			{Locale: "fr-FR", Files: []string{frFirst, frSecond}},
+		},
+		ExecuteUpload: func(_ context.Context, cfg screenshotUploadConfig[asc.AppScreenshotUploadResult], _ string) (asc.AppScreenshotUploadResult, error) {
+			callOrder = append(callOrder, cfg.LocalizationID)
+			switch cfg.LocalizationID {
+			case "loc-en":
+				return asc.AppScreenshotUploadResult{
+					VersionLocalizationID: "loc-en",
+					SetID:                 "set-en",
+					DisplayType:           cfg.DisplayType,
+					Total:                 1,
+					Uploaded:              1,
+					Results: []asc.AssetUploadResultItem{
+						{FileName: filepath.Base(enFile), FilePath: enFile, AssetID: "shot-en-1", State: "COMPLETE"},
+					},
+				}, nil
+			case "loc-fr":
+				return asc.AppScreenshotUploadResult{
+					VersionLocalizationID: "loc-fr",
+					SetID:                 "set-fr",
+					DisplayType:           cfg.DisplayType,
+					Total:                 2,
+					Uploaded:              1,
+					Pending:               1,
+					Failed:                1,
+					FailureArtifactPath:   ".asc/reports/screenshots-upload/failures-fr.json",
+					Results: []asc.AssetUploadResultItem{
+						{FileName: filepath.Base(frFirst), FilePath: frFirst, AssetID: "shot-fr-1", State: "COMPLETE"},
+					},
+					Failures: []asc.AssetUploadFailureItem{
+						{FileName: filepath.Base(frSecond), FilePath: frSecond, Error: "upload create failed"},
+					},
+				}, errors.New("screenshots upload: 1 file(s) pending retry")
+			default:
+				t.Fatalf("unexpected localization ID: %s", cfg.LocalizationID)
+				return asc.AppScreenshotUploadResult{}, nil
+			}
+		},
+	})
+	if err == nil {
+		t.Fatal("expected fan-out upload error")
+	}
+	if !strings.Contains(err.Error(), "upload locale fr-FR") {
+		t.Fatalf("expected locale-specific upload error, got %v", err)
+	}
+	if len(callOrder) != 2 || callOrder[0] != "loc-en" || callOrder[1] != "loc-fr" {
+		t.Fatalf("expected upload order [loc-en loc-fr], got %#v", callOrder)
+	}
+	if len(result.Localizations) != 2 {
+		t.Fatalf("expected 2 localization results, got %#v", result.Localizations)
+	}
+	if result.Localizations[0].Locale != "en-US" || result.Localizations[0].Uploaded != 1 {
+		t.Fatalf("expected preserved success for en-US, got %#v", result.Localizations[0])
+	}
+	if result.Localizations[1].Locale != "fr-FR" {
+		t.Fatalf("expected failing fr-FR localization result, got %#v", result.Localizations[1])
+	}
+	if result.Localizations[1].FailureArtifactPath != ".asc/reports/screenshots-upload/failures-fr.json" {
+		t.Fatalf("expected failure artifact path to be preserved, got %#v", result.Localizations[1])
+	}
+	if result.Localizations[1].Pending != 1 || result.Localizations[1].Failed != 1 {
+		t.Fatalf("expected pending=1 failed=1 for failing locale, got %#v", result.Localizations[1])
+	}
+	if len(result.Localizations[1].Failures) != 1 || result.Localizations[1].Failures[0].FilePath != frSecond {
+		t.Fatalf("expected failing locale failure details to be preserved, got %#v", result.Localizations[1].Failures)
+	}
+}
+
 func TestCollectLocaleAssetFilesSkipsIgnoredSubdirectoriesWithoutMatchingScreenshots(t *testing.T) {
 	rootDir := t.TempDir()
 	enDir := filepath.Join(rootDir, "en-US", "iphone")

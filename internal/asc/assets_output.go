@@ -65,12 +65,19 @@ type AppScreenshotUploadResult struct {
 
 // AppScreenshotLocalizationUploadResult represents one localization in a fan-out screenshot upload.
 type AppScreenshotLocalizationUploadResult struct {
-	Locale                string                  `json:"locale"`
-	VersionLocalizationID string                  `json:"versionLocalizationId"`
-	SetID                 string                  `json:"setId"`
-	DisplayType           string                  `json:"displayType"`
-	DryRun                bool                    `json:"dryRun,omitempty"`
-	Results               []AssetUploadResultItem `json:"results"`
+	Locale                string                   `json:"locale"`
+	VersionLocalizationID string                   `json:"versionLocalizationId"`
+	SetID                 string                   `json:"setId"`
+	DisplayType           string                   `json:"displayType"`
+	DryRun                bool                     `json:"dryRun,omitempty"`
+	Total                 int                      `json:"total,omitempty"`
+	Uploaded              int                      `json:"uploaded,omitempty"`
+	Skipped               int                      `json:"skipped,omitempty"`
+	Pending               int                      `json:"pending,omitempty"`
+	Failed                int                      `json:"failed,omitempty"`
+	FailureArtifactPath   string                   `json:"failureArtifactPath,omitempty"`
+	Results               []AssetUploadResultItem  `json:"results"`
+	Failures              []AssetUploadFailureItem `json:"failures,omitempty"`
 }
 
 // AppScreenshotFanoutUploadResult represents an app/version-scoped screenshot upload fan-out.
@@ -266,14 +273,23 @@ func appScreenshotFanoutUploadResultMainRows(result *AppScreenshotFanoutUploadRe
 }
 
 func appScreenshotFanoutUploadLocalizationRows(result *AppScreenshotFanoutUploadResult) ([]string, [][]string) {
-	headers := []string{"Locale", "Localization ID", "Set ID", "Files", "States"}
+	headers := []string{"Locale", "Localization ID", "Set ID", "Files", "Uploaded", "Skipped", "Pending", "Failed", "Failure Artifact", "States"}
 	rows := make([][]string, 0, len(result.Localizations))
 	for _, item := range result.Localizations {
+		total := item.Total
+		if total == 0 {
+			total = len(item.Results) + item.Pending
+		}
 		rows = append(rows, []string{
 			item.Locale,
 			item.VersionLocalizationID,
 			item.SetID,
-			fmt.Sprintf("%d", len(item.Results)),
+			fmt.Sprintf("%d", total),
+			fmt.Sprintf("%d", item.Uploaded),
+			fmt.Sprintf("%d", item.Skipped),
+			fmt.Sprintf("%d", item.Pending),
+			fmt.Sprintf("%d", item.Failed),
+			item.FailureArtifactPath,
 			summarizeAssetUploadStates(item.Results),
 		})
 	}
@@ -298,6 +314,22 @@ func appScreenshotFanoutUploadResultItemRows(result *AppScreenshotFanoutUploadRe
 				item.FileName,
 				item.AssetID,
 				state,
+			})
+		}
+	}
+	return headers, rows
+}
+
+func appScreenshotFanoutUploadFailureRows(result *AppScreenshotFanoutUploadResult) ([]string, [][]string) {
+	headers := []string{"Locale", "File Name", "File Path", "Error"}
+	rows := make([][]string, 0)
+	for _, localization := range result.Localizations {
+		for _, item := range localization.Failures {
+			rows = append(rows, []string{
+				localization.Locale,
+				item.FileName,
+				item.FilePath,
+				item.Error,
 			})
 		}
 	}

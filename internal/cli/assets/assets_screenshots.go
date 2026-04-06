@@ -99,6 +99,7 @@ type screenshotUploadDependencies struct {
 	GetClient        func() (*asc.Client, error)
 	RequestContext   func(context.Context) (context.Context, context.CancelFunc)
 	UploadScreenshot func(context.Context, *asc.Client, string, string, []string, bool, bool, bool) (asc.AppScreenshotUploadResult, error)
+	ExecuteUpload    func(context.Context, screenshotUploadConfig[asc.AppScreenshotUploadResult], string) (asc.AppScreenshotUploadResult, error)
 }
 
 type screenshotUploadFanoutConfig struct {
@@ -116,6 +117,7 @@ type screenshotUploadFanoutConfig struct {
 
 	RequestContext   func(context.Context) (context.Context, context.CancelFunc)
 	UploadScreenshot func(context.Context, *asc.Client, string, string, []string, bool, bool, bool) (asc.AppScreenshotUploadResult, error)
+	ExecuteUpload    func(context.Context, screenshotUploadConfig[asc.AppScreenshotUploadResult], string) (asc.AppScreenshotUploadResult, error)
 }
 
 type screenshotLocaleAssetFiles struct {
@@ -153,6 +155,48 @@ func focusedScreenshotDisplayTypesForPlatform(platform string) []string {
 		return append([]string(nil), focused...)
 	}
 	return nil
+}
+
+func resolveScreenshotUploadExecutor(
+	exec func(context.Context, screenshotUploadConfig[asc.AppScreenshotUploadResult], string) (asc.AppScreenshotUploadResult, error),
+	upload func(context.Context, *asc.Client, string, string, []string, bool, bool, bool) (asc.AppScreenshotUploadResult, error),
+) func(context.Context, screenshotUploadConfig[asc.AppScreenshotUploadResult], string) (asc.AppScreenshotUploadResult, error) {
+	if exec != nil {
+		return exec
+	}
+	if upload != nil {
+		return func(ctx context.Context, cfg screenshotUploadConfig[asc.AppScreenshotUploadResult], _ string) (asc.AppScreenshotUploadResult, error) {
+			return upload(ctx, cfg.Client, cfg.LocalizationID, cfg.DisplayType, cfg.Files, cfg.SkipExisting, cfg.Replace, cfg.DryRun)
+		}
+	}
+	return executeAppScreenshotUpload
+}
+
+func buildFanoutLocalizationUploadResult(locale string, uploadResult asc.AppScreenshotUploadResult) asc.AppScreenshotLocalizationUploadResult {
+	return asc.AppScreenshotLocalizationUploadResult{
+		Locale:                locale,
+		VersionLocalizationID: uploadResult.VersionLocalizationID,
+		SetID:                 uploadResult.SetID,
+		DisplayType:           uploadResult.DisplayType,
+		DryRun:                uploadResult.DryRun,
+		Total:                 uploadResult.Total,
+		Uploaded:              uploadResult.Uploaded,
+		Skipped:               uploadResult.Skipped,
+		Pending:               uploadResult.Pending,
+		Failed:                uploadResult.Failed,
+		FailureArtifactPath:   uploadResult.FailureArtifactPath,
+		Results:               append([]asc.AssetUploadResultItem(nil), uploadResult.Results...),
+		Failures:              append([]asc.AssetUploadFailureItem(nil), uploadResult.Failures...),
+	}
+}
+
+func hasAppScreenshotFanoutUploadResultOutput(result asc.AppScreenshotFanoutUploadResult) bool {
+	return strings.TrimSpace(result.AppID) != "" ||
+		strings.TrimSpace(result.Version) != "" ||
+		strings.TrimSpace(result.VersionID) != "" ||
+		strings.TrimSpace(result.Platform) != "" ||
+		strings.TrimSpace(result.DisplayType) != "" ||
+		len(result.Localizations) > 0
 }
 
 // ExecuteScreenshotSetUpload validates flags/files and runs the shared
@@ -411,11 +455,19 @@ Examples:
 				GetClient:        shared.GetASCClient,
 				RequestContext:   shared.ContextWithTimeout,
 				UploadScreenshot: uploadScreenshots,
+				ExecuteUpload:    executeAppScreenshotUpload,
 			})
 			if result != nil {
 				shouldPrint := err == nil
-				if appResult, ok := result.(*asc.AppScreenshotUploadResult); ok && hasAppScreenshotUploadResultOutput(*appResult) {
-					shouldPrint = true
+				switch typed := result.(type) {
+				case *asc.AppScreenshotUploadResult:
+					if hasAppScreenshotUploadResultOutput(*typed) {
+						shouldPrint = true
+					}
+				case *asc.AppScreenshotFanoutUploadResult:
+					if hasAppScreenshotFanoutUploadResultOutput(*typed) {
+						shouldPrint = true
+					}
 				}
 				if shouldPrint {
 					if printErr := shared.PrintOutput(result, *output.Output, *output.Pretty); printErr != nil {
@@ -441,9 +493,7 @@ func executeScreenshotUploadCommand(ctx context.Context, opts screenshotUploadCo
 	if deps.RequestContext == nil {
 		deps.RequestContext = shared.ContextWithTimeout
 	}
-	if deps.UploadScreenshot == nil {
-		deps.UploadScreenshot = uploadScreenshots
-	}
+	deps.ExecuteUpload = resolveScreenshotUploadExecutor(deps.ExecuteUpload, deps.UploadScreenshot)
 
 	locID := strings.TrimSpace(opts.VersionLocalizationID)
 	appFlagValue := strings.TrimSpace(opts.AppID)
@@ -512,7 +562,7 @@ func executeScreenshotUploadCommand(ctx context.Context, opts screenshotUploadCo
 		if err != nil {
 			return nil, err
 		}
-		result, err := executeAppScreenshotUpload(ctx, screenshotUploadConfig[asc.AppScreenshotUploadResult]{
+		result, err := deps.ExecuteUpload(ctx, screenshotUploadConfig[asc.AppScreenshotUploadResult]{
 			Client:         client,
 			LocalizationID: locID,
 			DisplayType:    apiDisplayType,
@@ -520,7 +570,7 @@ func executeScreenshotUploadCommand(ctx context.Context, opts screenshotUploadCo
 			SkipExisting:   opts.SkipExisting,
 			Replace:        opts.Replace,
 			DryRun:         opts.DryRun,
-			RequestContext: shared.ContextWithTimeout,
+			RequestContext: deps.RequestContext,
 			UploadContext:  contextWithAssetUploadTimeout,
 			Access:         appStoreVersionScreenshotSetAccess,
 		}, "")
@@ -571,9 +621,10 @@ func executeScreenshotUploadCommand(ctx context.Context, opts screenshotUploadCo
 		DryRun:           opts.DryRun,
 		RequestContext:   deps.RequestContext,
 		UploadScreenshot: deps.UploadScreenshot,
+		ExecuteUpload:    deps.ExecuteUpload,
 	})
 	if err != nil {
-		return nil, err
+		return &result, err
 	}
 	return &result, nil
 }
@@ -587,9 +638,7 @@ func uploadScreenshotsFanout(ctx context.Context, cfg screenshotUploadFanoutConf
 	if cfg.RequestContext == nil {
 		cfg.RequestContext = shared.ContextWithTimeout
 	}
-	if cfg.UploadScreenshot == nil {
-		cfg.UploadScreenshot = uploadScreenshots
-	}
+	cfg.ExecuteUpload = resolveScreenshotUploadExecutor(cfg.ExecuteUpload, cfg.UploadScreenshot)
 
 	localeAssets := cfg.LocaleAssets
 	if localeAssets == nil {
@@ -643,18 +692,25 @@ func uploadScreenshotsFanout(ctx context.Context, cfg screenshotUploadFanoutConf
 
 	for _, item := range localeAssets {
 		localizationID := localizationIDsByLocale[normalizeFanoutLocaleKey(item.Locale)]
-		uploadResult, err := cfg.UploadScreenshot(ctx, cfg.Client, localizationID, cfg.DisplayType, item.Files, cfg.SkipExisting, cfg.Replace, cfg.DryRun)
+		uploadResult, err := cfg.ExecuteUpload(ctx, screenshotUploadConfig[asc.AppScreenshotUploadResult]{
+			Client:         cfg.Client,
+			LocalizationID: localizationID,
+			DisplayType:    cfg.DisplayType,
+			Files:          item.Files,
+			SkipExisting:   cfg.SkipExisting,
+			Replace:        cfg.Replace,
+			DryRun:         cfg.DryRun,
+			RequestContext: cfg.RequestContext,
+			UploadContext:  contextWithAssetUploadTimeout,
+			Access:         appStoreVersionScreenshotSetAccess,
+		}, "")
 		if err != nil {
-			return zero, fmt.Errorf("upload locale %s: %w", item.Locale, err)
+			if hasAppScreenshotUploadResultOutput(uploadResult) {
+				result.Localizations = append(result.Localizations, buildFanoutLocalizationUploadResult(item.Locale, uploadResult))
+			}
+			return result, fmt.Errorf("upload locale %s: %w", item.Locale, err)
 		}
-		result.Localizations = append(result.Localizations, asc.AppScreenshotLocalizationUploadResult{
-			Locale:                item.Locale,
-			VersionLocalizationID: uploadResult.VersionLocalizationID,
-			SetID:                 uploadResult.SetID,
-			DisplayType:           uploadResult.DisplayType,
-			DryRun:                uploadResult.DryRun,
-			Results:               uploadResult.Results,
-		})
+		result.Localizations = append(result.Localizations, buildFanoutLocalizationUploadResult(item.Locale, uploadResult))
 	}
 
 	return result, nil

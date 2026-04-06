@@ -51,9 +51,9 @@ func TestRunScreenshotsUploadWritesFailureArtifactAndResumeCompletes(t *testing.
 		_ = os.Chdir(previousDir)
 	})
 
-	first := writeCmdtestScreenshotPNG(t, workDir, "01-home.png", 1242, 2688)
-	second := writeCmdtestScreenshotPNG(t, workDir, "02-settings.png", 1242, 2688)
-	third := writeCmdtestScreenshotPNG(t, workDir, "03-profile.png", 1242, 2688)
+	first := writeCmdtestScreenshotPNG(t, workDir, "01-home.png")
+	second := writeCmdtestScreenshotPNG(t, workDir, "02-settings.png")
+	third := writeCmdtestScreenshotPNG(t, workDir, "03-profile.png")
 
 	firstSize := cmdtestFileSize(t, first)
 	secondSize := cmdtestFileSize(t, second)
@@ -230,7 +230,170 @@ func TestRunScreenshotsUploadWritesFailureArtifactAndResumeCompletes(t *testing.
 	}
 }
 
-func writeCmdtestScreenshotPNG(t *testing.T, dir, name string, width, height int) string {
+func TestRunScreenshotsUploadFanoutPrintsPartialResultsOnLocaleFailure(t *testing.T) {
+	setupAuth(t)
+	t.Setenv("ASC_BYPASS_KEYCHAIN", "1")
+	t.Setenv("ASC_CONFIG_PATH", filepath.Join(t.TempDir(), "nonexistent.json"))
+	t.Setenv("ASC_APP_ID", "")
+
+	workDir := t.TempDir()
+	previousDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd() error: %v", err)
+	}
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("Chdir() error: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(previousDir)
+	})
+
+	enDir := filepath.Join(workDir, "en-US")
+	frDir := filepath.Join(workDir, "fr-FR")
+	if err := os.MkdirAll(enDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(%q) error: %v", enDir, err)
+	}
+	if err := os.MkdirAll(frDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(%q) error: %v", frDir, err)
+	}
+
+	enFile := writeCmdtestScreenshotPNG(t, enDir, "01-home.png")
+	frFirst := writeCmdtestScreenshotPNG(t, frDir, "01-home.png")
+	frSecond := writeCmdtestScreenshotPNG(t, frDir, "02-settings.png")
+
+	enSize := cmdtestFileSize(t, enFile)
+	frFirstSize := cmdtestFileSize(t, frFirst)
+
+	originalTransport := http.DefaultTransport
+	t.Cleanup(func() {
+		http.DefaultTransport = originalTransport
+	})
+
+	createCount := 0
+	http.DefaultTransport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch {
+		case req.Method == http.MethodGet && req.URL.Path == "/v1/appStoreVersions/version-1":
+			return screenshotsUploadJSONResponse(http.StatusOK, `{"data":{"type":"appStoreVersions","id":"version-1","attributes":{"platform":"IOS","versionString":"1.2.3"},"relationships":{"app":{"data":{"type":"apps","id":"123456789"}}}}}`)
+		case req.Method == http.MethodGet && req.URL.Path == "/v1/appStoreVersions/version-1/appStoreVersionLocalizations":
+			return screenshotsUploadJSONResponse(http.StatusOK, `{"data":[{"type":"appStoreVersionLocalizations","id":"loc-en","attributes":{"locale":"en-US"}},{"type":"appStoreVersionLocalizations","id":"loc-fr","attributes":{"locale":"fr-FR"}}],"links":{}}`)
+		case req.Method == http.MethodGet && req.URL.Path == "/v1/appStoreVersionLocalizations/loc-en/appScreenshotSets":
+			return screenshotsUploadJSONResponse(http.StatusOK, `{"data":[{"type":"appScreenshotSets","id":"set-en","attributes":{"screenshotDisplayType":"APP_IPHONE_65"}}],"links":{}}`)
+		case req.Method == http.MethodGet && req.URL.Path == "/v1/appStoreVersionLocalizations/loc-fr/appScreenshotSets":
+			return screenshotsUploadJSONResponse(http.StatusOK, `{"data":[{"type":"appScreenshotSets","id":"set-fr","attributes":{"screenshotDisplayType":"APP_IPHONE_65"}}],"links":{}}`)
+		case req.Method == http.MethodGet && req.URL.Path == "/v1/appScreenshotSets/set-en/relationships/appScreenshots":
+			return screenshotsUploadJSONResponse(http.StatusOK, `{"data":[],"links":{}}`)
+		case req.Method == http.MethodGet && req.URL.Path == "/v1/appScreenshotSets/set-fr/relationships/appScreenshots":
+			return screenshotsUploadJSONResponse(http.StatusOK, `{"data":[],"links":{}}`)
+		case req.Method == http.MethodPost && req.URL.Path == "/v1/appScreenshots":
+			createCount++
+			switch createCount {
+			case 1:
+				return screenshotsUploadJSONResponse(http.StatusCreated, fmt.Sprintf(`{"data":{"type":"appScreenshots","id":"new-en-1","attributes":{"uploadOperations":[{"method":"PUT","url":"https://upload.example/new-en-1","length":%d,"offset":0}]}}}`, enSize))
+			case 2:
+				return screenshotsUploadJSONResponse(http.StatusCreated, fmt.Sprintf(`{"data":{"type":"appScreenshots","id":"new-fr-1","attributes":{"uploadOperations":[{"method":"PUT","url":"https://upload.example/new-fr-1","length":%d,"offset":0}]}}}`, frFirstSize))
+			case 3:
+				return screenshotsUploadJSONResponse(http.StatusInternalServerError, `{"errors":[{"status":"500","code":"INTERNAL_ERROR","detail":"upload create failed"}]}`)
+			default:
+				t.Fatalf("unexpected extra screenshot create: %d", createCount)
+				return nil, nil
+			}
+		case req.Method == http.MethodPut && req.URL.Host == "upload.example":
+			return screenshotsUploadJSONResponse(http.StatusOK, `{}`)
+		case req.Method == http.MethodPatch && req.URL.Path == "/v1/appScreenshots/new-en-1":
+			return screenshotsUploadJSONResponse(http.StatusOK, `{"data":{"type":"appScreenshots","id":"new-en-1","attributes":{"uploaded":true}}}`)
+		case req.Method == http.MethodPatch && req.URL.Path == "/v1/appScreenshots/new-fr-1":
+			return screenshotsUploadJSONResponse(http.StatusOK, `{"data":{"type":"appScreenshots","id":"new-fr-1","attributes":{"uploaded":true}}}`)
+		case req.Method == http.MethodGet && req.URL.Path == "/v1/appScreenshots/new-en-1":
+			return screenshotsUploadJSONResponse(http.StatusOK, `{"data":{"type":"appScreenshots","id":"new-en-1","attributes":{"assetDeliveryState":{"state":"COMPLETE"}}}}`)
+		case req.Method == http.MethodGet && req.URL.Path == "/v1/appScreenshots/new-fr-1":
+			return screenshotsUploadJSONResponse(http.StatusOK, `{"data":{"type":"appScreenshots","id":"new-fr-1","attributes":{"assetDeliveryState":{"state":"COMPLETE"}}}}`)
+		case req.Method == http.MethodPatch && req.URL.Path == "/v1/appScreenshotSets/set-en/relationships/appScreenshots":
+			body, readErr := io.ReadAll(req.Body)
+			if readErr != nil {
+				t.Fatalf("ReadAll() error: %v", readErr)
+			}
+			if !strings.Contains(string(body), `"id":"new-en-1"`) {
+				t.Fatalf("expected set-en relationship patch to include new-en-1, got %s", string(body))
+			}
+			return screenshotsUploadJSONResponse(http.StatusNoContent, "")
+		case req.Method == http.MethodPatch && req.URL.Path == "/v1/appScreenshotSets/set-fr/relationships/appScreenshots":
+			t.Fatalf("unexpected relationship patch for failing fr-FR upload")
+			return nil, nil
+		default:
+			t.Fatalf("unexpected request: %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})
+
+	var payload struct {
+		Localizations []struct {
+			Locale              string `json:"locale"`
+			Pending             int    `json:"pending"`
+			Failed              int    `json:"failed"`
+			FailureArtifactPath string `json:"failureArtifactPath"`
+			Results             []struct {
+				FileName string `json:"fileName"`
+				AssetID  string `json:"assetId"`
+			} `json:"results"`
+			Failures []struct {
+				FilePath string `json:"filePath"`
+			} `json:"failures"`
+		} `json:"localizations"`
+	}
+
+	stdout, stderr := captureOutput(t, func() {
+		code := cmd.Run([]string{
+			"screenshots", "upload",
+			"--app", "123456789",
+			"--version-id", "version-1",
+			"--path", workDir,
+			"--device-type", "IPHONE_65",
+			"--output", "json",
+		}, "1.2.3")
+		if code != cmd.ExitError {
+			t.Fatalf("expected exit code %d, got %d", cmd.ExitError, code)
+		}
+	})
+
+	if stderr != "" {
+		t.Fatalf("expected empty stderr for reported fan-out upload failure, got %q", stderr)
+	}
+	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+		t.Fatalf("failed to parse fan-out stdout JSON: %v\nstdout=%s", err, stdout)
+	}
+	if len(payload.Localizations) != 2 {
+		t.Fatalf("expected 2 localization results in stdout, got %#v", payload.Localizations)
+	}
+	if payload.Localizations[0].Locale != "en-US" || len(payload.Localizations[0].Results) != 1 {
+		t.Fatalf("expected preserved en-US success result, got %#v", payload.Localizations[0])
+	}
+	if payload.Localizations[1].Locale != "fr-FR" {
+		t.Fatalf("expected fr-FR failing localization, got %#v", payload.Localizations[1])
+	}
+	if payload.Localizations[1].Pending != 1 || payload.Localizations[1].Failed != 1 {
+		t.Fatalf("expected pending=1 failed=1 for fr-FR failure, got %#v", payload.Localizations[1])
+	}
+	if payload.Localizations[1].FailureArtifactPath == "" {
+		t.Fatalf("expected failure artifact path in fan-out stdout, got %s", stdout)
+	}
+	if len(payload.Localizations[1].Failures) != 1 || payload.Localizations[1].Failures[0].FilePath != frSecond {
+		t.Fatalf("expected fr-FR failure details in stdout, got %#v", payload.Localizations[1].Failures)
+	}
+
+	artifactPath := payload.Localizations[1].FailureArtifactPath
+	if !filepath.IsAbs(artifactPath) {
+		artifactPath = filepath.Join(workDir, artifactPath)
+	}
+	artifactData, err := os.ReadFile(artifactPath)
+	if err != nil {
+		t.Fatalf("ReadFile(%q) error: %v", artifactPath, err)
+	}
+	if !strings.Contains(string(artifactData), frSecond) {
+		t.Fatalf("expected fan-out artifact to mention pending file %q, got %s", frSecond, string(artifactData))
+	}
+}
+
+func writeCmdtestScreenshotPNG(t *testing.T, dir, name string) string {
 	t.Helper()
 
 	path := filepath.Join(dir, name)
@@ -240,9 +403,9 @@ func writeCmdtestScreenshotPNG(t *testing.T, dir, name string, width, height int
 	}
 	defer file.Close()
 
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	img := image.NewRGBA(image.Rect(0, 0, 1242, 2688))
+	for y := 0; y < 2688; y++ {
+		for x := 0; x < 1242; x++ {
 			img.Set(x, y, color.RGBA{R: 10, G: 20, B: 30, A: 255})
 		}
 	}

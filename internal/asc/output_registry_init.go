@@ -214,6 +214,10 @@ func init() {
 			render(lh, lr)
 			ih, ir := appScreenshotFanoutUploadResultItemRows(v)
 			render(ih, ir)
+			fh, fr := appScreenshotFanoutUploadFailureRows(v)
+			if len(fr) > 0 {
+				render(fh, fr)
+			}
 		}
 		return nil
 	})
