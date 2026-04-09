@@ -243,6 +243,12 @@ func TestAuthDoctorJSONPrefillsVersionFromXcodeProject(t *testing.T) {
 		if !sliceContains(report.Migration.SuggestedCommands, `asc versions attach-build --version-id "VERSION_ID" --build "UPLOADED_BUILD_ID"`) {
 			t.Fatalf("expected attach-build guidance before validate, got %#v", report.Migration.SuggestedCommands)
 		}
+		attachIdx := sliceIndex(report.Migration.SuggestedCommands, `asc versions attach-build --version-id "VERSION_ID" --build "UPLOADED_BUILD_ID"`)
+		validateIdx := sliceIndex(report.Migration.SuggestedCommands, `asc validate --app "123456789" --version-id "VERSION_ID"`)
+		reviewSubmitIdx := sliceIndex(report.Migration.SuggestedCommands, `asc review submit --app "123456789" --version-id "VERSION_ID" --build "UPLOADED_BUILD_ID" --platform "PLATFORM" --confirm`)
+		if attachIdx < 0 || validateIdx <= attachIdx || reviewSubmitIdx <= validateIdx {
+			t.Fatalf("expected attach-build -> validate -> review submit ordering, got %#v", report.Migration.SuggestedCommands)
+		}
 		if sliceContains(report.Migration.SuggestedCommands, `asc review submissions-create --app "123456789" --platform "PLATFORM"`) {
 			t.Fatalf("expected upload-only migration hints to avoid the old multi-step review submission guidance, got %#v", report.Migration.SuggestedCommands)
 		}
@@ -295,4 +301,13 @@ func sliceContains(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func sliceIndex(values []string, target string) int {
+	for i, value := range values {
+		if value == target {
+			return i
+		}
+	}
+	return -1
 }
