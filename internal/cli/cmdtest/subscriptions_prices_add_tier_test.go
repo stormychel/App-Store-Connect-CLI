@@ -370,15 +370,36 @@ func TestSubscriptionsPricesAdd_ExistingPriceForwardsTerritoryOverridePayload(t 
 			if !ok {
 				t.Fatalf("expected relationships object, got %#v", data["relationships"])
 			}
-			subscription := relationships["subscription"].(map[string]any)["data"].(map[string]any)
+			subscriptionRelationship, ok := relationships["subscription"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected subscription relationship object, got %#v", relationships["subscription"])
+			}
+			subscription, ok := subscriptionRelationship["data"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected subscription relationship data object, got %#v", subscriptionRelationship["data"])
+			}
 			if subscription["id"] != "8000000003" {
 				t.Fatalf("expected subscription id 8000000003, got %#v", subscription["id"])
 			}
-			pricePoint := relationships["subscriptionPricePoint"].(map[string]any)["data"].(map[string]any)
+			pricePointRelationship, ok := relationships["subscriptionPricePoint"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected subscriptionPricePoint relationship object, got %#v", relationships["subscriptionPricePoint"])
+			}
+			pricePoint, ok := pricePointRelationship["data"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected subscriptionPricePoint relationship data object, got %#v", pricePointRelationship["data"])
+			}
 			if pricePoint["id"] != "PP_ID" {
 				t.Fatalf("expected price point PP_ID, got %#v", pricePoint["id"])
 			}
-			territory := relationships["territory"].(map[string]any)["data"].(map[string]any)
+			territoryRelationship, ok := relationships["territory"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected territory relationship object, got %#v", relationships["territory"])
+			}
+			territory, ok := territoryRelationship["data"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected territory relationship data object, got %#v", territoryRelationship["data"])
+			}
 			if territory["id"] != "NOR" {
 				t.Fatalf("expected territory NOR, got %#v", territory["id"])
 			}

@@ -179,7 +179,7 @@ func TestSubscriptionsSetupValidationErrors(t *testing.T) {
 				"--product-id", "com.example.pro.monthly",
 				"--available-in-new-territories",
 			},
-			wantErr: "--territories is required when availability flags are provided",
+			wantErr: "--territories is required when availability flags are provided unless --price-territory can be used to derive availability",
 		},
 	}
 
@@ -422,8 +422,8 @@ func TestSubscriptionsSetupPricingAutoEnablesPriceTerritoryAvailability(t *testi
 			if payload.Data.Relationships.Subscription.Data.ID != "sub-1" {
 				t.Fatalf("expected availability to target sub-1, got %q", payload.Data.Relationships.Subscription.Data.ID)
 			}
-			if payload.Data.Attributes.AvailableInNewTerritories {
-				t.Fatalf("expected availableInNewTerritories false")
+			if !payload.Data.Attributes.AvailableInNewTerritories {
+				t.Fatalf("expected availableInNewTerritories true")
 			}
 			if len(payload.Data.Relationships.AvailableTerritories.Data) != 1 {
 				t.Fatalf("expected one auto-enabled territory, got %+v", payload.Data.Relationships.AvailableTerritories.Data)
@@ -431,7 +431,7 @@ func TestSubscriptionsSetupPricingAutoEnablesPriceTerritoryAvailability(t *testi
 			if got := payload.Data.Relationships.AvailableTerritories.Data[0].ID; got != "NOR" {
 				t.Fatalf("expected auto-enabled territory NOR, got %q", got)
 			}
-			return jsonHTTPResponse(http.StatusCreated, `{"data":{"type":"subscriptionAvailabilities","id":"avail-1","attributes":{"availableInNewTerritories":false}}}`), nil
+			return jsonHTTPResponse(http.StatusCreated, `{"data":{"type":"subscriptionAvailabilities","id":"avail-1","attributes":{"availableInNewTerritories":true}}}`), nil
 		default:
 			t.Fatalf("unexpected extra request: %s %s", req.Method, req.URL.String())
 			return nil, nil
@@ -452,6 +452,7 @@ func TestSubscriptionsSetupPricingAutoEnablesPriceTerritoryAvailability(t *testi
 			"--subscription-period", "ONE_MONTH",
 			"--price", "19",
 			"--price-territory", "Norway",
+			"--available-in-new-territories",
 			"--no-verify",
 			"--output", "json",
 		}); err != nil {
@@ -473,6 +474,19 @@ func TestSubscriptionsSetupPricingAutoEnablesPriceTerritoryAvailability(t *testi
 	}
 	if result.Status != "ok" || result.AvailabilityID != "avail-1" || result.ResolvedPricePointID != "pp-nok-19" {
 		t.Fatalf("unexpected pricing auto-availability result: %+v", result)
+	}
+	foundAutoAvailabilityMessage := false
+	for _, step := range result.Steps {
+		if step.Name != "set_availability" {
+			continue
+		}
+		if !strings.Contains(step.Message, `auto-enabled pricing territory "NOR"`) {
+			t.Fatalf("expected auto-availability step message, got %q", step.Message)
+		}
+		foundAutoAvailabilityMessage = true
+	}
+	if !foundAutoAvailabilityMessage {
+		t.Fatalf("expected set_availability step with auto-enabled pricing territory message, got %+v", result.Steps)
 	}
 	if result.Verification.Status != "skipped" {
 		t.Fatalf("expected skipped verification with --no-verify, got %+v", result.Verification)

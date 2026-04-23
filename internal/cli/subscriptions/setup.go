@@ -280,8 +280,8 @@ Examples:
 				opts.StartDate = normalizedStartDate
 			}
 
-			if opts.hasAvailability() && len(opts.Territories) == 0 {
-				return shared.UsageError("--territories is required when availability flags are provided")
+			if opts.hasAvailability() && len(subscriptionsSetupAvailabilityTerritories(opts)) == 0 {
+				return shared.UsageError("--territories is required when availability flags are provided unless --price-territory can be used to derive availability")
 			}
 
 			result, runErr := executeSubscriptionsSetup(ctx, opts)
