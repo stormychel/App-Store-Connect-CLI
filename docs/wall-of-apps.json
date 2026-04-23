@@ -643,6 +643,11 @@
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/86/48/0d/86480d5e-7118-7a35-6a74-7cba92a9099d/AppIcon-0-0-1x_U007ephone-0-1-sRGB-85-220.png/512x512bb.jpg"
   },
   {
+    "app": "Model Usage",
+    "link": "https://apps.apple.com/us/app/model-usage/id6761831599?uo=4",
+    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/6e/78/19/6e7819e8-76dc-2674-3df7-fdc7d8558633/AppIcon-0-0-1x_U007epad-0-1-P3-85-220.png/512x512bb.jpg"
+  },
+  {
     "app": "mojo - GLP-1 Weight Tracker",
     "link": "https://apps.apple.com/app/id6751704399",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/ee/00/84/ee008451-9632-a851-0da8-6a69caab37a5/AppIcon-0-0-1x_U007ephone-0-1-0-85-220.png/512x512bb.jpg"
@@ -1121,11 +1126,6 @@
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/49/51/6b/49516bdb-9a33-055e-3296-38f930c5d311/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/512x512bb.jpg"
   },
   {
-    "app": "This Day: Photo Cleaner",
-    "link": "https://apps.apple.com/us/app/this-day-photo-cleaner/id6758584686?uo=4",
-    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/41/ea/9f/41ea9f90-f385-a14e-5d96-1196fc297acb/AppIcon-0-0-1x_U007epad-0-1-sRGB-85-220.png/512x512bb.jpg"
-  },
-  {
     "app": "Thought Ease: End Overthinking",
     "link": "https://apps.apple.com/app/id6759291269",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/38/89/82/3889821a-7a9e-d068-89ca-937b482923ed/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/512x512bb.jpg"
@@ -1304,10 +1304,5 @@
     "app": "시선 - 사진 한 장, 시 한 줄",
     "link": "https://apps.apple.com/app/id6748271659",
     "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/4e/a3/3b/4ea33b80-8dcb-11ec-4699-6ccff7efcfa9/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/512x512bb.jpg"
-  },
-  {
-    "app": "Model Usage",
-    "link": "https://apps.apple.com/app/id6761831599",
-    "icon": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/6e/78/19/6e7819e8-76dc-2674-3df7-fdc7d8558633/AppIcon-0-0-1x_U007epad-0-1-P3-85-220.png/512x512bb.jpg"
   }
 ]
